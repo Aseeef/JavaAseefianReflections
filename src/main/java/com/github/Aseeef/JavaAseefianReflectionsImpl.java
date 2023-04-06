@@ -3,7 +3,6 @@ package com.github.Aseeef;
 import com.github.Aseeef.cache.AseefianCache;
 import com.github.Aseeef.cache.CaffeinatedCache;
 import com.github.Aseeef.cache.VanillaCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NonNull;
