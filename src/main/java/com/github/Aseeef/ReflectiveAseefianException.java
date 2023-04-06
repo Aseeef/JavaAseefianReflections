@@ -7,7 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 public class ReflectiveAseefianException extends RuntimeException {
 
     @Getter
-    private ExceptionType exceptionType;
+    private final ExceptionType exceptionType;
 
     public ReflectiveAseefianException(Throwable cause, ExceptionType exceptionType) {
         super(cause);
@@ -21,12 +21,12 @@ public class ReflectiveAseefianException extends RuntimeException {
 
     public ReflectiveAseefianException(Throwable cause) {
         super(cause);
-        this.exceptionType = exceptionType;
+        this.exceptionType = deduceExceptionType(cause);
     }
 
     public ReflectiveAseefianException(String message) {
         super(message);
-        this.exceptionType = exceptionType;
+        this.exceptionType = ExceptionType.UNKNOWN;
     }
 
     private ExceptionType deduceExceptionType(Throwable throwable) {
@@ -40,13 +40,15 @@ public class ReflectiveAseefianException extends RuntimeException {
             return ExceptionType.ILLEGAL_ARGUMENT;
         } else if (throwable instanceof NoSuchMethodException) {
             return ExceptionType.METHOD_NOT_FOUND;
+        } else if (throwable instanceof IllegalAccessException) {
+            return ExceptionType.ILLEGAL_ACCESS;
         }
+        return ExceptionType.UNKNOWN;
     }
 
     public enum ExceptionType {
         FIELD_NOT_FOUND,
         METHOD_NOT_FOUND,
-        CONSTRUCTOR_NOT_FOUND,
         ILLEGAL_ACCESS,
         INVOCATION_EXCEPTION,
         INSTANTIATION_EXCEPTION,
