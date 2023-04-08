@@ -90,8 +90,10 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
         try {
             return (T) method.invoke(objectInstance, parameters);
-        } catch (IllegalAccessException | InvocationTargetException ex) {
-            throw new ReflectiveAseefianException(ex);
+        } catch (InvocationTargetException ex) {
+            throw new ReflectiveAseefianException(ex.getCause(), ReflectiveAseefianException.ExceptionType.INVOCATION_EXCEPTION);
+        } catch (IllegalAccessException ex) {
+            throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.ILLEGAL_ACCESS);
         }
     }
 

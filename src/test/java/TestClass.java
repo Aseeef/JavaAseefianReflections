@@ -21,6 +21,10 @@ public class TestClass {
         return o1.toString() + o2.toString();
     }
 
+    public void errorThrowingMethod() {
+        throw new NullPointerException();
+    }
+
     @SneakyThrows
     public static void main(String[] args) {
         JavaAseefianReflections jar = JavaAseefianReflections.init();

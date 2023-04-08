@@ -6,9 +6,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -54,6 +52,12 @@ class JavaAseefianReflectionsTest {
         String[] actual0 = jar.invokeMethod(arrayList, "toArray", (Object) new String[0]);
         assertArrayEquals(expected0, actual0);
 
+        Set<Integer> set = new LinkedHashSet<>();
+        int randNumber = new Random().nextInt();
+        jar.invokeMethod(set, "add", randNumber);
+        boolean wasAdded = jar.invokeMethod(set, "contains", randNumber);
+        assertTrue(wasAdded);
+
         TestClass tc = new TestClass();
 
         String expected1 = tc.doSomething("a", 2, 'c', "d");
@@ -82,19 +86,16 @@ class JavaAseefianReflectionsTest {
         });
         assertEquals(error1.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
 
-        //tc.doSomething("a", "b");
-        //ReflectiveAseefianException error2 = assertThrows(ReflectiveAseefianException.class, () -> {
-        //    jar.invokeMethod(tc, "doSomething", "a", "b");
-        //});
-        //assertEquals(error2.getExceptionType(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
-    }
+        ReflectiveAseefianException error2 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.invokeMethod(tc, "errorThrowingMethod");
+        });
+        assertEquals(error2.getExceptionType(), ReflectiveAseefianException.ExceptionType.INVOCATION_EXCEPTION);
 
-    @Test
-    void testInvokeMethod() {
-    }
-
-    @Test
-    void testInvokeMethod1() {
+        // should throw error, because remove() is defined in HashSet, not LinkedHashSet
+        ReflectiveAseefianException error3 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.invokeMethod(set, LinkedHashSet.class,"remove", randNumber);
+        });
+        assertEquals(error3.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
     }
 
     @Test

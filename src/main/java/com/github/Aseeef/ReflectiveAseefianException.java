@@ -10,26 +10,26 @@ public class ReflectiveAseefianException extends RuntimeException {
     private final ExceptionType exceptionType;
 
     public ReflectiveAseefianException(Throwable cause, ExceptionType exceptionType) {
-        super(cause);
+        super("[" + exceptionType.toString() + "]", cause);
         this.exceptionType = exceptionType;
     }
 
     public ReflectiveAseefianException(String message, ExceptionType exceptionType) {
-        super(message);
+        super("[" + exceptionType.toString() + "] " + message);
         this.exceptionType = exceptionType;
     }
 
     public ReflectiveAseefianException(Throwable cause) {
-        super(cause);
+        super("[" + deduceExceptionType(cause).toString() + "]", cause);
         this.exceptionType = deduceExceptionType(cause);
     }
 
     public ReflectiveAseefianException(String message) {
-        super(message);
+        super("[" + ExceptionType.UNKNOWN + "] " + message);
         this.exceptionType = ExceptionType.UNKNOWN;
     }
 
-    private ExceptionType deduceExceptionType(Throwable throwable) {
+    private static ExceptionType deduceExceptionType(Throwable throwable) {
         if (throwable instanceof NoSuchFieldException) {
             return ExceptionType.FIELD_NOT_FOUND;
         } else if (throwable instanceof InvocationTargetException) {
