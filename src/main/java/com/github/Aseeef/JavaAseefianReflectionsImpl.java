@@ -56,8 +56,12 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
         try {
             return invokeStaticMethod(clazz, "valueOf", enumName);
-        } catch (IllegalArgumentException ex) {
-            throw new ReflectiveAseefianException("No enum constant " + enumName + " was discovered in the class " + clazz.getName() + "!", ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND);
+        } catch (ReflectiveAseefianException ex) {
+            if (ex.getCause() instanceof InvocationTargetException) {
+                throw new ReflectiveAseefianException("No enum constant " + enumName + " was discovered in the class " + clazz.getName() + "!", ReflectiveAseefianException.ExceptionType.ENUM_NOT_FOUND);
+            } else {
+                throw new ReflectiveAseefianException(ex.getCause(), ex.getExceptionType());
+            }
         }
     }
 
@@ -107,8 +111,10 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
         try {
             return (T) method.invoke(null, parameters);
-        } catch (InvocationTargetException | IllegalAccessException ex) {
-            throw new ReflectiveAseefianException(ex);
+        } catch (IllegalAccessException ex) {
+            throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.ILLEGAL_ACCESS);
+        } catch (InvocationTargetException ex) {
+            throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.INVOCATION_EXCEPTION);
         }
     }
 
@@ -191,8 +197,21 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     }
 
     public @NonNull Method getMethodByName(@NonNull Class<?> objectType, @NonNull String methodName, Class<?>... parameterTypes) {
-        if (methodName.equals("*cnstr*"))
-            throw new ReflectiveAseefianException("Invalid method name.");
+        // validate the method name
+        boolean valid;
+        char[] chars = methodName.toCharArray();
+        valid = Character.isJavaIdentifierStart(chars[0]);
+        for (int i = 1 ; i < chars.length ; i++) {
+            if (!valid) break;
+            if (!Character.isJavaIdentifierPart(chars[i])) {
+                valid = false;
+            }
+        }
+        if (!valid) {
+            throw new IllegalArgumentException("Error! Specified an invalid method name!");
+        }
+
+        // now search
         return (Method) getExecutable(new MethodSignature(objectType,  methodName, parameterTypes));
     }
 
@@ -301,18 +320,20 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
         // size > 1
         else {
-            // for classes like say the NMS CraftArmorStand, there are multiple zero param "getHandle()" methods:
-            // Entity getHandle
-            // LivingEntity getHandle
-            // CraftArmorStand getHandle
-            // so this just accounts for that before through an ambigious call exception
-            Executable exList = executableList.get(0);
-            for (Executable executable : executableList) {
-                if (!Arrays.equals(exList.getParameterTypes(), executable.getParameterTypes())) {
-                    throw new IllegalStateException("Ambiguous call to method" + executableList.get(0).getName() + ": " + executableList);
-                }
+            //todo, need to think this through better to resolve edge cases
+            // first, try filter by removing the var arg call if any
+            Optional<Executable> optionalExecutable = executableList.stream().filter(Executable::isVarArgs).findFirst();
+            optionalExecutable.ifPresent(executableList::remove);
+            if (executableList.size() == 1) {
+                return executableList.get(0);
             }
-            return executableList.get(0);
+
+            // Example of an ambigious call:
+            // public void doSomething(String s);
+            // public void doSomething(Object s);
+            // And you call doSomething((Object) "string")
+            // Now which do we call?
+            throw new ReflectiveAseefianException("Ambiguous call to method '" + executableList.get(0).getName() + "': " + executableList, ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
         }
 
     }
@@ -358,7 +379,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
                     //todo: in java this is completely legal
                     if (previousFound != null) {
-                        throw new IllegalStateException("Ambiguous field name '" + field + "'. This field name exists in both " + previousFound.getDeclaringClass() + " and its super class " + currentField.getDeclaringClass() + "!");
+                        throw new ReflectiveAseefianException("Ambiguous field name '" + field + "'. This field name exists in both " + previousFound.getDeclaringClass() + " and its super class " + currentField.getDeclaringClass() + "!", ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
                     }
 
                 } catch (NoSuchFieldException e) {

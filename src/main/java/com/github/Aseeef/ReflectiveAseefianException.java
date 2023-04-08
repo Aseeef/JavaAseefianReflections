@@ -49,10 +49,12 @@ public class ReflectiveAseefianException extends RuntimeException {
     public enum ExceptionType {
         FIELD_NOT_FOUND,
         METHOD_NOT_FOUND,
+        ENUM_NOT_FOUND,
         ILLEGAL_ACCESS,
         INVOCATION_EXCEPTION,
         INSTANTIATION_EXCEPTION,
         ILLEGAL_ARGUMENT,
+        AMBIGUOUS_CALL,
         UNKNOWN,
     }
 

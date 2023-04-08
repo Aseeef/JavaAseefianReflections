@@ -11,5 +11,6 @@ public class JARConfig {
     protected boolean useCaffeineCache = false;
     protected boolean allowAccessingInheritedFields = false;
     protected boolean allowAccessingInheritedMethods = false;
+    protected boolean allowAmbiguousCalls = false;
 
 }
