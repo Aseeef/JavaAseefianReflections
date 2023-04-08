@@ -51,6 +51,7 @@ public class ReflectiveAseefianException extends RuntimeException {
         METHOD_NOT_FOUND,
         ENUM_NOT_FOUND,
         ILLEGAL_ACCESS,
+        ILLEGAL_STATE,
         INVOCATION_EXCEPTION,
         INSTANTIATION_EXCEPTION,
         ILLEGAL_ARGUMENT,

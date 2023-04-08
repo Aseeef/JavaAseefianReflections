@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 
 public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
-    public final static Map<Class<?>, Class<?>> WRAPPERS = Collections.unmodifiableMap(
+    public final static Map<Class<?>, Class<?>> BOXED_TO_PRIMITIVE = Collections.unmodifiableMap(
             new HashMap<>() {
                 {
                     put(Boolean.class, Boolean.TYPE);
@@ -28,6 +28,21 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                     put(Float.class, Float.TYPE);
                     put(Double.class, Double.TYPE);
                     put(Void.class, Void.TYPE);
+                }
+            }
+    );
+    public final static Map<Class<?>, Class<?>> PRIMITIVE_TO_BOXED = Collections.unmodifiableMap(
+            new HashMap<>() {
+                {
+                    put(Boolean.TYPE, Boolean.class);
+                    put(Character.TYPE, Character.class);
+                    put(Byte.TYPE, Byte.class);
+                    put(Short.TYPE, Short.class);
+                    put(Integer.TYPE, Integer.class);
+                    put(Long.TYPE, Long.class);
+                    put(Float.TYPE, Float.class);
+                    put(Double.TYPE, Double.class);
+                    put(Void.TYPE, Void.class);
                 }
             }
     );
@@ -119,6 +134,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     }
 
     private Method findMethodBySignature(MethodSignature methodSignature) {
+
         Method method = (Method) executableCache.getIfPresent(methodSignature);
         if (method != null) {
             return method;
@@ -136,11 +152,14 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                     } else if (methodSignature.methodName != null && methodSignature.methodReturnType == null) {
                         method = getMethodByName(currentClazz, methodSignature.methodName, methodSignature.getParameterTypes());
                     } else {
-                        throw new IllegalStateException(); //should never happen
+                        throw new ReflectiveAseefianException("This error should never happen!", ReflectiveAseefianException.ExceptionType.ILLEGAL_STATE); //should never happen
                     }
                     executableCache.put(methodSignature, method);
                     break;
                 } catch (ReflectiveAseefianException err) {
+                    // only catch exceptions about the method not being found.
+                    // only then we try to search the super classes
+                    if (err.getExceptionType() != ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND) break;
                     ex = err;
                     // if the current class doesn't have this
                     // method, see if the super class does
@@ -266,6 +285,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     // specifically for searching methods, can't find constructors
     private static @Nullable Executable findMatchingExecutable(Method[] executables, @Nullable Class<?> expectedReturnType, @Nullable String methodName, Class<?>[] argClasses) {
         if (expectedReturnType == null && methodName == null) {
+            // find executable by only the parameter types
             return findMatchingExecutable(executables, argClasses);
         }
         Stream<Method> stream = Arrays.stream(executables);
@@ -282,31 +302,43 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
      * Finds an {@link Executable} (which is generally a method or a constructor) that fits the type objects in args
      *
      * @param executables the method or constructor array
-     * @param argClasses        the type objects which to match to
+     * @param suppliedParameterTypes        the type objects which to match to
      * @return the nullable executable that was found
      */
-    private static @Nullable Executable findMatchingExecutable(Executable[] executables, Class<?>[] argClasses) {
+    private static @Nullable Executable findMatchingExecutable(Executable[] executables, Class<?>[] suppliedParameterTypes) {
+
+        if (executables.length == 0)
+            throw new ReflectiveAseefianException("Executable is empty!", ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
 
         List<Executable> executableList = Arrays.stream(executables).parallel().filter(executable -> {
             executable.trySetAccessible(); //in case private
             // if parameter count doesn't equal arg length then no match
             // UNLESS the executable has variable length (ei myMethod(String... varLenStr))
-            if (executable.getParameterCount() == argClasses.length || (executable.isVarArgs() && argClasses.length > executable.getParameterCount())) {
-                boolean match = true;
-                Class<?>[] parameterTypes = executable.getParameterTypes();
-                for (int i = 0; i < argClasses.length; i++) {
+            if (executable.getParameterCount() == suppliedParameterTypes.length || (executable.isVarArgs() && suppliedParameterTypes.length > executable.getParameterCount())) {
+                Class<?>[] executableParameterTypes = executable.getParameterTypes();
+                for (int i = 0; i < suppliedParameterTypes.length; i++) {
                     int index = Math.min(i, executable.getParameterCount() - 1); // need to do this because of var args (ei a parameter in parameter like method(String... varargString))
-                    boolean isPrimativeWrapper = argClasses[index] != null && WRAPPERS.containsKey(argClasses[index]);
-                    // only time the types shouldnt match is because one is primitive type the other is boxed
-                    // OR we have a variable length string
-                    if (argClasses[i] != null && (!parameterTypes[index].isAssignableFrom(argClasses[index]))) {
-                        match = parameterTypes[index].isPrimitive() && isPrimativeWrapper && parameterTypes[index] == WRAPPERS.get(argClasses[index]);
-                        if (executable.isVarArgs() && i >= executable.getParameterCount() - 1) {
-                            match = parameterTypes[index].getComponentType().isInstance(argClasses[index]);
-                        }
+                    // Class type of the parameter's arg at index
+                    Class<?> suppliedParameterType = suppliedParameterTypes[index];
+                    Class<?> executableParameterType = executableParameterTypes[index];
+
+                    // if parameter of null type it's an automatic match
+                    if (suppliedParameterType == null) continue;
+                    // If we are matching a var arg parameter, adjustments to argClassType need to be made!
+                    if (executable.isVarArgs() && i >= executable.getParameterCount() - 1) {
+                        executableParameterType = executableParameterType.getComponentType();
                     }
-                    // otherwise if they don't match, then this executable just isn't a match so break
-                    if (!match) return false;
+                    // handles primitive -> boxed and boxed -> primitive convertions
+                    if (suppliedParameterType.isPrimitive() && !executableParameterType.isPrimitive() && BOXED_TO_PRIMITIVE.containsKey(executableParameterType)) {
+                        executableParameterType = BOXED_TO_PRIMITIVE.get(executableParameterType);
+                    } else if (!suppliedParameterType.isPrimitive() && executableParameterType.isPrimitive() && PRIMITIVE_TO_BOXED.containsKey(executableParameterType)) {
+                        executableParameterType = PRIMITIVE_TO_BOXED.get(executableParameterType);
+                    }
+
+                    if (!executableParameterType.isAssignableFrom(suppliedParameterType)) {
+                        return false; // only a single failed match is enough to conclude we got the wrong executable
+                    }
+
                 }
                 return true;
             }

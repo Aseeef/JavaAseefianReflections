@@ -50,14 +50,43 @@ class JavaAseefianReflectionsTest {
     void invokeMethod() {
         List<String> arrayList = new ArrayList<>(Arrays.asList("a", "b", "c", "d"));
 
-        String[] expected = {"a", "b", "c", "d"};
-        String[] actual = jar.invokeMethod(arrayList, "toArray", (Object) new String[0]);
-        assertArrayEquals(expected, actual);
+        String[] expected0 = {"a", "b", "c", "d"};
+        String[] actual0 = jar.invokeMethod(arrayList, "toArray", (Object) new String[0]);
+        assertArrayEquals(expected0, actual0);
 
         TestClass tc = new TestClass();
-        String expected2 = tc.doSomething("a", 2, 'c', "d");
-        String actual2 = jar.invokeMethod(tc, "doSomething", "a", 2, 'c', "d");
+
+        String expected1 = tc.doSomething("a", 2, 'c', "d");
+        String actual1 = jar.invokeMethod(tc, "doSomething", "a", 2, 'c', "d");
+        assertEquals(expected1, actual1);
+
+        String expected2 = tc.doSomething2("a", 2, 2, 2, 2, 10, new Integer(100));
+        String actual2 = jar.invokeMethod(tc, "doSomething2", "a", 2, 2, 2, 2, 10, new Integer(100));
         assertEquals(expected2, actual2);
+
+        String expected3 = tc.doSomething2(null, 2, 2, 2, 2, 10, new Integer(100));
+        String actual3 = jar.invokeMethod(tc, "doSomething2", null, 2, 2, 2, 2, 10, new Integer(100));
+        assertEquals(expected3, actual3);
+
+        String expected4 = tc.doSomething("a", null, "b", "c", null);
+        String actual4 = jar.invokeMethod(tc, "doSomething", "a", null, "b", "c", null);
+        assertEquals(expected4, actual4);
+
+        ReflectiveAseefianException error0 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.invokeMethod(tc, "doSomething", 10, "a", "b", "c", null);
+        });
+        assertEquals(error0.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
+
+        ReflectiveAseefianException error1 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.invokeMethod(tc, "aNonExistentMethod");
+        });
+        assertEquals(error1.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
+
+        //tc.doSomething("a", "b");
+        //ReflectiveAseefianException error2 = assertThrows(ReflectiveAseefianException.class, () -> {
+        //    jar.invokeMethod(tc, "doSomething", "a", "b");
+        //});
+        //assertEquals(error2.getExceptionType(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
     }
 
     @Test
