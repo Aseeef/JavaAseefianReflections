@@ -126,6 +126,11 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
             parameters = convertParametersFromVarLength(method, parameters);
         }
 
+        // ensure method is static
+        if (!Modifier.isStatic(method.getModifiers())) {
+            throw new ReflectiveAseefianException("The found method was not static!", ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
+        }
+
         try {
             return (T) method.invoke(null, parameters);
         } catch (IllegalAccessException ex) {
@@ -159,10 +164,10 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                     executableCache.put(methodSignature, method);
                     break;
                 } catch (ReflectiveAseefianException err) {
+                    ex = err;
                     // only catch exceptions about the method not being found.
                     // only then we try to search the super classes
                     if (err.getExceptionType() != ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND) break;
-                    ex = err;
                     // if the current class doesn't have this
                     // method, see if the super class does
                     if (currentClazz.getSuperclass() != null) {
@@ -210,11 +215,6 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         } catch (NoSuchMethodException ex) {
             throw new ReflectiveAseefianException(ex);
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes) {
-        return (Constructor<T>) getExecutable(new MethodSignature(objectType, "*cnstr*", parameterTypes));
     }
 
     public @NonNull Method getMethodByName(@NonNull Class<?> objectType, @NonNull String methodName, Class<?>... parameterTypes) {
@@ -267,6 +267,10 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes) {
+        return (Constructor<T>) getExecutable(new MethodSignature(objectType, "*cnstr*", parameterTypes));
+    }
 
     public <T> T newInstance(@NonNull Class<T> clazz, Object... parameters) {
         Constructor<T> constructor = getConstructor(clazz, fromParametersToParameterTypes(parameters));
@@ -354,18 +358,16 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
         // size > 1
         else {
-            //todo, need to think this through better to resolve edge cases
-            // first, try filter by removing the var arg call if any
-            Optional<Executable> optionalExecutable = executableList.stream().filter(Executable::isVarArgs).findFirst();
-            optionalExecutable.ifPresent(executableList::remove);
-            if (executableList.size() == 1) {
+            // example of a valid call like this: List.of(...)
+            List<Executable> nonVarArgsExecutables = executableList.stream().filter(Executable::isVarArgs).collect(Collectors.toList());
+            if (nonVarArgsExecutables.size() == 1) {
                 return executableList.get(0);
             }
 
             // Example of an ambigious call:
-            // public void doSomething(String s);
-            // public void doSomething(Object s);
-            // And you call doSomething((Object) "string")
+            // public void doSomething(String s, int i1, int... is);
+            // public void doSomething(String s, int i1, int i2);
+            // And you call doSomething("string", 1, 2)
             // Now which do we call?
             throw new ReflectiveAseefianException("Ambiguous call to method '" + executableList.get(0).getName() + "': " + executableList, ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
         }

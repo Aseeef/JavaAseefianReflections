@@ -58,11 +58,11 @@ public interface JavaAseefianReflections {
 
     public <T> T invokeStaticMethod(Class<?> objectType, String methodName, Object... parameters);
 
-    public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes);
-
     public @NonNull Method getMethodByName(@NonNull Class<?> objectType, @NonNull String methodName, Class<?>... parameterTypes);
 
     public @NonNull Method getMethodByReturnType(@NonNull Class<?> objectType, @NonNull Class<?> executedReturnType, Class<?>... parameterTypes);
+
+    public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes);
 
     /**
      * Creates a new instance of the given class. The method uses the supplied arguments to
@@ -76,7 +76,7 @@ public interface JavaAseefianReflections {
      * Gets a field by type and index
      * @param clazz the class which this field is in (must be the actual class,
      *              searching superclasses/interfaces is not supported with this method at the moment
-     * @param fieldType - the expected field type. Make sure to be mindful of the fact that Integer.class is not Integer.TYPE.
+     * @param fieldType - the expected field type. Make sure to be mindful of whether the field type is a primitive or not (ei Integer.class is not Integer.TYPE).
      * @param fieldTypeIndex - the index these field is at. For example, if this field is the second declare String,
      *                       then the index would be two (regardless of other fields). Index ids don't care about field
      *                       modifiers like static, final, etc

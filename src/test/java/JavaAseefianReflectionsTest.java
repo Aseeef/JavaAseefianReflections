@@ -72,10 +72,6 @@ class JavaAseefianReflectionsTest {
         String actual3 = jar.invokeMethod(tc, "doSomething2", null, 2, 2, 2, 2, 10, new Integer(100));
         assertEquals(expected3, actual3);
 
-        String expected4 = tc.doSomething("a", null, "b", "c", null);
-        String actual4 = jar.invokeMethod(tc, "doSomething", "a", null, "b", "c", null);
-        assertEquals(expected4, actual4);
-
         ReflectiveAseefianException error0 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeMethod(tc, "doSomething", 10, "a", "b", "c", null);
         });
@@ -96,6 +92,13 @@ class JavaAseefianReflectionsTest {
             jar.invokeMethod(set, LinkedHashSet.class,"remove", randNumber);
         });
         assertEquals(error3.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
+
+        // even java complains this is an ambitious call
+        ReflectiveAseefianException error4 = assertThrows(ReflectiveAseefianException.class, () -> {
+            //tc.doSomething4("a", null, "b", "c", null);
+            jar.invokeMethod(tc, "doSomething4", "a", null, "b", "c", null);
+        });
+        assertEquals(error4.getExceptionType(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
     }
 
     @Test
@@ -104,11 +107,13 @@ class JavaAseefianReflectionsTest {
         List<String> actual = jar.invokeStaticMethod(List.class, "of", "a", "b", "c", "d");
         assertEquals(expected1, actual);
 
+        // the method exists but its not static
         ReflectiveAseefianException exception1 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeStaticMethod(TestClass.class, "doSomething", "hi", "bro!");
         });
-        assertEquals(exception1.getExceptionType(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
+        assertEquals(exception1.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
 
+        // simply doesn't exist with these parameters
         ReflectiveAseefianException exception2 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeStaticMethod(String.class, "format", 100, "hello");
         });
@@ -127,8 +132,12 @@ class JavaAseefianReflectionsTest {
     void getMethodByReturnType() {
     }
 
-    @Test
+    @Test @SuppressWarnings("unchecked")
     void newInstance() {
+        ArrayList<Integer> arrayList = jar.newInstance(ArrayList.class, List.of(1, 2, 3, 4, 5));
+        assertEquals(5, arrayList.size());
+
+
     }
 
     @Test

@@ -2,11 +2,20 @@ import com.github.Aseeef.JavaAseefianReflections;
 import lombok.SneakyThrows;
 
 import java.util.Arrays;
+import java.util.Random;
 
 public class TestClass {
 
     public String doSomething(String s1, Object... os) {
         return s1 + "" + Arrays.toString(os);
+    }
+
+    public String doSomething4(String s1, Object os1, Object... os) {
+        return s1 + "[" + os1.toString() + "]" + Arrays.toString(os);
+    }
+
+    public String doSomething4(String s1, Object... os) {
+        return s1 + Arrays.toString(os);
     }
 
     public String doSomething2(String s1, int... numbers) {
@@ -23,6 +32,10 @@ public class TestClass {
 
     public void errorThrowingMethod() {
         throw new NullPointerException();
+    }
+
+    public static int getRandomNumber() {
+        return new Random().nextInt();
     }
 
     @SneakyThrows
