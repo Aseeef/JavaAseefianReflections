@@ -1,10 +1,17 @@
-import com.github.Aseeef.JavaAseefianReflections;
-import lombok.SneakyThrows;
-
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
-public class TestClass {
+public class TestClass extends SuperTestClass {
+
+    String[] testArgs;
+    Set<Double> doubleSet;
+    List<Integer> integerList;
+
+    public TestClass(String... testArgs) {
+        this.testArgs = testArgs;
+    }
 
     public String doSomething(String s1, Object... os) {
         return s1 + "" + Arrays.toString(os);
@@ -18,8 +25,16 @@ public class TestClass {
         return s1 + Arrays.toString(os);
     }
 
-    public String doSomething2(String s1, int... numbers) {
+    public double boxedParameters(Integer i, Double d) {
+        return i.doubleValue() + d.doubleValue();
+    }
+
+    public String testMethodForInvoke(String s1, int... numbers) {
         return s1 + "" + Arrays.stream(numbers).asLongStream().sum();
+    }
+
+    public boolean testNestedInterfaceCalls(InnerInterface i) {
+        return true;
     }
 
     public String doSomething3(Object o1, String o2) {
@@ -36,13 +51,6 @@ public class TestClass {
 
     public static int getRandomNumber() {
         return new Random().nextInt();
-    }
-
-    @SneakyThrows
-    public static void main(String[] args) {
-        JavaAseefianReflections jar = JavaAseefianReflections.init();
-        TestClass tc = new TestClass();
-        String actual3 = jar.invokeMethod(tc, "doSomething2", "a", 2, 2, 2, 2, 10, new Integer(100));
     }
 
 }

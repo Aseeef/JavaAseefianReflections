@@ -9,4 +9,11 @@ public interface AseefianCache<K,V> {
 
     public @Nullable V getIfPresent(K key);
 
+    public default @NonNull V getOrElse(K key, V defaultValue) {
+        V retVal = getIfPresent(key);
+        if (retVal == null)
+            retVal = defaultValue;
+        return retVal;
+    };
+
 }

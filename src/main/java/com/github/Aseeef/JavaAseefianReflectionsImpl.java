@@ -50,9 +50,9 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     // config
     private final JARConfig config;
     // cache constructors AND methods based on their method signature to speed up reflections
-    private final AseefianCache<MethodSignature, Executable> executableCache;
+    private final AseefianCache<MethodSignature, Executable[]> executableCache;
     // cache fields
-    private final AseefianCache<FieldSignature, Field> fieldCache;
+    private final AseefianCache<FieldSignature, Field[]> fieldCache;
 
     public JavaAseefianReflectionsImpl(JARConfig config) {
         this.config = config;
@@ -80,21 +80,11 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
     }
 
-    @SuppressWarnings("unchecked")
     public <T> T invokeMethod(Object objectInstance, String methodName, Object... parameters) {
         Class<?> clazz = objectInstance.getClass();
         MethodSignature methodSignature = new MethodSignature(clazz, methodName, fromParametersToParameterTypes(parameters));
         Method method = findMethodBySignature(methodSignature);
-        if (method.isVarArgs()) {
-            parameters = convertParametersFromVarLength(method, parameters);
-        }
-        try {
-            return (T) method.invoke(objectInstance, parameters);
-        } catch (InvocationTargetException ex) {
-            throw new ReflectiveAseefianException(ex.getCause(), ReflectiveAseefianException.ExceptionType.INVOCATION_EXCEPTION);
-        } catch (IllegalAccessException ex) {
-            throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.ILLEGAL_ACCESS);
-        }
+        return invokeMethod(objectInstance, method, parameters);
     }
 
     public <T> T invokeMethod(@NonNull Object objectInstance, Class<?> objectType, String methodName, Object... parameters) {
@@ -113,8 +103,10 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
         try {
             return (T) method.invoke(objectInstance, parameters);
-        } catch (InvocationTargetException | IllegalAccessException ex) {
-            throw new ReflectiveAseefianException(ex);
+        } catch (InvocationTargetException ex) {
+            throw new ReflectiveAseefianException(ex.getCause(), ReflectiveAseefianException.ExceptionType.INVOCATION_EXCEPTION);
+        } catch (IllegalAccessException ex) {
+            throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.ILLEGAL_ACCESS);
         }
     }
 
@@ -140,28 +132,29 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
     }
 
-    private Method findMethodBySignature(MethodSignature methodSignature) {
+    private @NonNull Method findMethodBySignature(MethodSignature methodSignature) {
 
-        Method method = (Method) executableCache.getIfPresent(methodSignature);
-        if (method != null) {
-            return method;
+        Executable[] methods = executableCache.getIfPresent(methodSignature);
+        if (methods != null) {
+            return (Method) methods[0];
         } else {
             ReflectiveAseefianException ex = null;
 
             Queue<Class<?>> classesToCheck = new ArrayDeque<>();
             classesToCheck.offer(methodSignature.clazz);
+            Method method = null;
             do {
                 Class<?> currentClazz = classesToCheck.poll();
                 if (currentClazz == null) break;
                 try {
                     if (methodSignature.methodName == null && methodSignature.methodReturnType != null) {
-                        method = getMethodByReturnType(currentClazz, methodSignature.methodReturnType);
+                        method = getMethodByParamAndReturnType(currentClazz, methodSignature.methodReturnType);
                     } else if (methodSignature.methodName != null && methodSignature.methodReturnType == null) {
                         method = getMethodByName(currentClazz, methodSignature.methodName, methodSignature.getParameterTypes());
                     } else {
                         throw new ReflectiveAseefianException("This error should never happen!", ReflectiveAseefianException.ExceptionType.ILLEGAL_STATE); //should never happen
                     }
-                    executableCache.put(methodSignature, method);
+                    executableCache.put(methodSignature, new Executable[]{method});
                     break;
                 } catch (ReflectiveAseefianException err) {
                     ex = err;
@@ -170,17 +163,23 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                     if (err.getExceptionType() != ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND) break;
                     // if the current class doesn't have this
                     // method, see if the super class does
-                    if (currentClazz.getSuperclass() != null) {
+                    if (currentClazz.getSuperclass() != null && config.searchSuperClasses) {
                         classesToCheck.offer(currentClazz.getSuperclass());
                     }
-                    // or perhaps the method is a default method in an interface
-                    for (Class<?> interfaceClass : currentClazz.getInterfaces()) {
-                        for (Method interfaceMethod : interfaceClass.getDeclaredMethods()) {
-                            if (interfaceMethod.isDefault()) {
-                                classesToCheck.offer(interfaceClass);
-                                break;
+                    // or perhaps the method is a default method in an interface?
+                    // In this case we do a depth first search to find the method
+                    Deque<Class<?>> interfacesToSearch = new ArrayDeque<>(List.of(currentClazz.getInterfaces()));
+                    if (!interfacesToSearch.isEmpty()) {
+                        do {
+                            Class<?> interfaceClass = interfacesToSearch.poll();
+                            for (Method interfaceMethod : interfaceClass.getDeclaredMethods()) {
+                                if (interfaceMethod.isDefault()) {
+                                    classesToCheck.offer(interfaceClass);
+                                    break;
+                                }
                             }
-                        }
+                            interfacesToSearch.addAll(List.of(interfaceClass.getInterfaces()));
+                        } while (!interfacesToSearch.isEmpty());
                     }
                 }
             } while (!classesToCheck.isEmpty());
@@ -205,17 +204,6 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         return parameters;
     }
 
-    private @NonNull Executable getExecutable(Class<?> objectType, String methodName, Class<?>... classes) {
-        try {
-            if (methodName.equals("*cnstr*")) {
-                return objectType.getConstructor(classes);
-            } else {
-                return objectType.getMethod(methodName, classes);
-            }
-        } catch (NoSuchMethodException ex) {
-            throw new ReflectiveAseefianException(ex);
-        }
-    }
 
     public @NonNull Method getMethodByName(@NonNull Class<?> objectType, @NonNull String methodName, Class<?>... parameterTypes) {
         // validate the method name
@@ -229,47 +217,79 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
             }
         }
         if (!valid) {
-            throw new IllegalArgumentException("Error! Specified an invalid method name!");
+            throw new ReflectiveAseefianException("Error! Specified an invalid method name!", ReflectiveAseefianException.ExceptionType.ILLEGAL_ARGUMENT);
         }
 
-        // now search
-        return (Method) getExecutable(new MethodSignature(objectType,  methodName, parameterTypes));
+        // now search and return
+        return (Method) getExecutables(new MethodSignature(objectType, methodName, parameterTypes), true)[0];
     }
 
-    public @NonNull Method getMethodByReturnType(@NonNull Class<?> objectType, @NonNull Class<?> executedReturnType, Class<?>... parameterTypes) {
-        return (Method) getExecutable(new MethodSignature(objectType, executedReturnType, parameterTypes));
+    public @NonNull Method getMethodByParamAndReturnType(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes) {
+        return (Method) getExecutables(new MethodSignature(objectType, methodReturnType, parameterTypes), true)[0];
     }
 
-    private @NonNull Executable getExecutable(MethodSignature methodSignature) {
+    public @NonNull Method[] getMethodsByParamAndReturnType(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes) {
+        return Arrays.stream(getExecutables(new MethodSignature(objectType, methodReturnType, parameterTypes), false)).map(Method.class::cast).toArray(Method[]::new);
+    }
 
-        Executable method = executableCache.getIfPresent(methodSignature);
+    /**
+     * Get an executable based on its signature
+     * @param methodSignature - signature of the target executable
+     * @param expectingOne - whether this call is expecting to return a unique executable; if true, will throw an error if more than one executables found
+     * @return The matched executables
+     */
+    private @NonNull Executable[] getExecutables(MethodSignature methodSignature, boolean expectingOne) {
+
+        Executable[] method = executableCache.getIfPresent(methodSignature);
         if (method != null) {
             return method;
         } else {
+            Executable[] matchedExecutables;
             if (methodSignature.methodName != null && methodSignature.methodName.equals("*cnstr*")) {
-                method = findMatchingExecutable(methodSignature.clazz.getDeclaredConstructors(), methodSignature.parameterTypes);
+                matchedExecutables = findMatchingExecutables(methodSignature.clazz.getDeclaredConstructors(), methodSignature.parameterTypes);
             } else {
-                method = findMatchingExecutable(methodSignature.clazz.getDeclaredMethods(), methodSignature.methodReturnType, methodSignature.methodName, methodSignature.parameterTypes);
+                matchedExecutables = findMatchingExecutables(methodSignature.clazz.getDeclaredMethods(), methodSignature.methodReturnType, methodSignature.methodName, methodSignature.parameterTypes);
             }
-            if (method != null) executableCache.put(methodSignature, method);
-        }
 
-        if (method != null) {
-            return method;
-        } else {
-            List<String> list = Arrays.stream(methodSignature.parameterTypes).map(o -> o == null ? "null" : o.getSimpleName()).collect(Collectors.toList());
-            StringBuilder sb = new StringBuilder();
-            for (String l : list) {
-                sb.append(l).append(", ");
+            if (matchedExecutables.length == 1 || !expectingOne)  {
+                executableCache.put(methodSignature, matchedExecutables);
+                return matchedExecutables;
+            } else if (matchedExecutables.length == 0) {
+                List<String> list = Arrays.stream(methodSignature.parameterTypes).map(o -> o == null ? "null" : o.getSimpleName()).collect(Collectors.toList());
+                StringBuilder sb = new StringBuilder();
+                for (String l : list) {
+                    sb.append(l).append(", ");
+                }
+                if (sb.length() >= 2)
+                    sb.delete(sb.length() - 2, sb.length());
+
+                throw new ReflectiveAseefianException("An error happened while invoking the method/constructor. Does a suitable candidate exist for [" + methodSignature.methodReturnType + "] " + methodSignature.clazz.getSimpleName() + "#" + methodSignature.methodName + "(" + sb + ")?!", ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
             }
-            sb.delete(sb.length() - 2, sb.length());
-            throw new ReflectiveAseefianException("An error happened while invoking the method/constructor. Does a suitable candidate exist for [" + methodSignature.methodReturnType + "] " + methodSignature.clazz.getSimpleName() + "#" + methodSignature.methodName + "(" + sb + ")?!", ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
+            // meaning size > 1
+            else {
+                // example of a valid call like this: List.of(...)
+                Executable[] nonVarArgsExecutables = Arrays.stream(matchedExecutables).filter(Executable::isVarArgs).toArray(Executable[]::new);
+                if (nonVarArgsExecutables.length == 1) {
+                    return matchedExecutables;
+                }
+
+                // Example of an ambiguous call:
+                // public void doSomething(String s, int i1, int... is);
+                // public void doSomething(String s, int i1, int i2);
+                // And you call doSomething("string", 1, 2)
+                // Now which do we call?
+                if (config.allowAmbiguousCalls) {
+                    return matchedExecutables;
+                }
+
+                throw new ReflectiveAseefianException("Ambiguous call to method '" + matchedExecutables[0].getName() + "': " + Arrays.toString(matchedExecutables), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
+            }
         }
     }
 
     @SuppressWarnings("unchecked")
     public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes) {
-        return (Constructor<T>) getExecutable(new MethodSignature(objectType, "*cnstr*", parameterTypes));
+        return (Constructor<T>) getExecutables(new MethodSignature(objectType, "*cnstr*", parameterTypes), true)[0];
     }
 
     public <T> T newInstance(@NonNull Class<T> clazz, Object... parameters) {
@@ -284,15 +304,15 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
     }
 
-    private static Class<?>[] fromParametersToParameterTypes(Object[] parameters) {
+    private Class<?>[] fromParametersToParameterTypes(Object[] parameters) {
         return Arrays.stream(parameters).map(p -> p == null ? null : p.getClass()).toArray(Class[]::new);
     }
 
     // specifically for searching methods, can't find constructors
-    private static @Nullable Executable findMatchingExecutable(Method[] executables, @Nullable Class<?> expectedReturnType, @Nullable String methodName, Class<?>[] argClasses) {
+    private Executable[] findMatchingExecutables(Method[] executables, @Nullable Class<?> expectedReturnType, @Nullable String methodName, Class<?>[] argClasses) {
         if (expectedReturnType == null && methodName == null) {
             // find executable by only the parameter types
-            return findMatchingExecutable(executables, argClasses);
+            return findMatchingExecutables(executables, argClasses);
         }
         Stream<Method> stream = Arrays.stream(executables);
         if (expectedReturnType != null) {
@@ -301,7 +321,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         if (methodName != null) {
             stream = stream.filter(method -> method.getName().equals(methodName));
         }
-        return findMatchingExecutable(stream.toArray(Method[]::new), argClasses);
+        return findMatchingExecutables(stream.toArray(Method[]::new), argClasses);
     }
 
     /**
@@ -309,14 +329,14 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
      *
      * @param executables the method or constructor array
      * @param suppliedParameterTypes        the type objects which to match to
-     * @return the nullable executable that was found
+     * @return the possible empty executable that was found
      */
-    private static @Nullable Executable findMatchingExecutable(Executable[] executables, Class<?>[] suppliedParameterTypes) {
+    private @NonNull Executable[] findMatchingExecutables(Executable[] executables, Class<?>[] suppliedParameterTypes) {
 
         if (executables.length == 0)
-            throw new ReflectiveAseefianException("Executable is empty!", ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
+            return new Executable[0];
 
-        List<Executable> executableList = Arrays.stream(executables).parallel().filter(executable -> {
+        return Arrays.stream(executables).parallel().filter(executable -> {
             executable.trySetAccessible(); //in case private
             // if parameter count doesn't equal arg length then no match
             // UNLESS the executable has variable length (ei myMethod(String... varLenStr))
@@ -349,132 +369,148 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                 return true;
             }
             return false;
-        }).collect(Collectors.toList());
-
-        if (executableList.size() == 0)
-            return null;
-        else if (executableList.size() == 1) {
-            return executableList.get(0);
-        }
-        // size > 1
-        else {
-            // example of a valid call like this: List.of(...)
-            List<Executable> nonVarArgsExecutables = executableList.stream().filter(Executable::isVarArgs).collect(Collectors.toList());
-            if (nonVarArgsExecutables.size() == 1) {
-                return executableList.get(0);
-            }
-
-            // Example of an ambigious call:
-            // public void doSomething(String s, int i1, int... is);
-            // public void doSomething(String s, int i1, int i2);
-            // And you call doSomething("string", 1, 2)
-            // Now which do we call?
-            throw new ReflectiveAseefianException("Ambiguous call to method '" + executableList.get(0).getName() + "': " + executableList, ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
-        }
+        }).toArray(Executable[]::new);
 
     }
 
-    public Field getFieldByTypeIndex(Class<?> clazz, Class<?> fieldType, int fieldTypeIndex) {
-        Field field;
+    public Field[] getFieldsByType(Class<?> clazz, Class<?> fieldType, boolean exactType) {
+        Field[] fields;
         try {
-            field = Arrays.stream(clazz.getDeclaredFields())
-                    .filter(f -> f.getType() == fieldType)
-                    .toArray(Field[]::new)[fieldTypeIndex];
+            fields = Arrays.stream(clazz.getDeclaredFields()).parallel()
+                    .filter(f -> {
+                        if (f.getType() == fieldType)
+                            return true;
+                        else if (!exactType) {
+                            Deque<Class<?>> interfacesToSearch = new ArrayDeque<>(List.of(f.getType().getInterfaces()));
+                            if (!interfacesToSearch.isEmpty()) {
+                                do {
+                                    Class<?> interfaceClass = interfacesToSearch.poll();
+                                    if (interfaceClass.equals(fieldType))
+                                        return true;
+                                    interfacesToSearch.addAll(List.of(interfaceClass.getInterfaces()));
+                                } while (!interfacesToSearch.isEmpty());
+                            }
+                        }
+                        return false;
+                    })
+                    .toArray(Field[]::new);
+            Arrays.stream(fields).forEach(AccessibleObject::trySetAccessible);
         } catch (IndexOutOfBoundsException ex) {
             // no such field
             throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND);
         }
+        return fields;
+    }
+
+    @Override
+    public Field getFieldByType(Class<?> clazz, Class<?> fieldType, boolean exactType) {
+        Field[] fields = getFieldsByType(clazz, fieldType, exactType);
+        if (fields.length == 0) {
+            throw new ReflectiveAseefianException("No such field exists!", ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND);
+        } else if (fields.length > 1 && !config.allowAmbiguousCalls) {
+            List<String> fieldNames = Arrays.stream(fields).map(Field::getName).collect(Collectors.toList());
+            StringBuilder sb = new StringBuilder();
+            for (String l : fieldNames) {
+                sb.append(l).append(", ");
+            }
+            sb.delete(sb.length() - 2, sb.length());
+            throw new ReflectiveAseefianException("More than one field found in class " + clazz.getSimpleName() + " with type " + fieldType.getSimpleName() + ": " + sb.toString());
+        } else {
+            return fields[0];
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    @Override
+    public Field getFieldByName(Class<?> clazz, String fieldName) {
+        NoSuchFieldException ex = null;
+        FieldSignature fs = new FieldSignature(clazz, fieldName);
+        Field[] matchingFieldsArr = fieldCache.getIfPresent(fs);
+        // note: List<Field> MUST be one or zero
+        Field currentField = matchingFieldsArr == null ? null : matchingFieldsArr[0];
+        // if current field is null, attempt to search through super classes
+        if (currentField == null) {
+            List<Field> matchingFields = new ArrayList<>();
+            while (clazz != null) {
+                try {
+                    currentField = clazz.getDeclaredField(fieldName);
+                    matchingFields.add(currentField);
+                    ex = null;
+                    break;
+                } catch (NoSuchFieldException e) {
+                    if (config.searchSuperClasses) {
+                        ex = e;
+                        clazz = clazz.getSuperclass();
+                    } else {
+                        throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND);
+                    }
+                }
+            }
+            matchingFieldsArr = matchingFields.toArray(Field[]::new);
+        }
+        // if still nothing found, throw error
+        if (matchingFieldsArr.length == 0) {
+            throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND);
+        }
+        // cache
+        fieldCache.put(fs, matchingFieldsArr);
+        // return field
+        Field field = matchingFieldsArr[0];
         field.trySetAccessible();
         return field;
     }
 
+    /**
+     * @inheritDoc
+     */
     public <K, V> K setStaticField(String field, V value, Class<?> clazz) {
         return setFieldInternal(null, field, value, clazz);
     }
 
+    /**
+     * @inheritDoc
+     */
     public <K, V> K setField(K obj, @NonNull String field, @Nullable V value) {
         return setFieldInternal(obj, field, value, obj.getClass());
     }
 
+    /**
+     * @inheritDoc
+     */
     public <K, V> K setField(K obj, @NonNull String field, @Nullable V value, @NonNull Class<?> clazz) {
         return setFieldInternal(obj, field, value, clazz);
     }
 
-    private <K, V> K setFieldInternal(K obj, @NonNull String field, @Nullable V value, @NonNull Class<?> clazz) {
-        Exception ex = null;
-        FieldSignature fs = new FieldSignature(clazz, field);
-        Field currentField = fieldCache.getIfPresent(fs);
-        // if current field is null, attempt to search through super classes
-        if (currentField == null) {
-            Field previousFound = null;
-            while (clazz != null) {
-                try {
-                    currentField = clazz.getDeclaredField(field);
-                    ex = null;
-                    clazz = clazz.getSuperclass();
-
-                    //todo: in java this is completely legal
-                    if (previousFound != null) {
-                        throw new ReflectiveAseefianException("Ambiguous field name '" + field + "'. This field name exists in both " + previousFound.getDeclaringClass() + " and its super class " + currentField.getDeclaringClass() + "!", ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
-                    }
-
-                } catch (NoSuchFieldException e) {
-                    ex = e;
-                    clazz = clazz.getSuperclass();
-                }
-                previousFound = currentField;
-            }
-        }
-        if (currentField == null) {
-            // print error to figure out why still null
-            ex.printStackTrace();
-        } else {
-            try {
-                currentField.trySetAccessible();
-                currentField.set(obj, value);
-            } catch (IllegalAccessException ex2) {
-                ex2.printStackTrace();
-            }
+    private <K, V> K setFieldInternal(K obj, @NonNull String fieldName, @Nullable V value, @NonNull Class<?> clazz) {
+        Field field = getFieldByName(clazz, fieldName);
+        try {
+            field.set(obj, value);
+        } catch (IllegalAccessException ex1) {
+            throw new ReflectiveAseefianException(ex1, ReflectiveAseefianException.ExceptionType.ILLEGAL_ACCESS);
+        } catch (IllegalArgumentException ex2) {
+            throw new ReflectiveAseefianException(ex2, ReflectiveAseefianException.ExceptionType.ILLEGAL_ARGUMENT);
         }
         return obj;
     }
 
     /**
-     * Gets the specified static field from the specified class. If the supplied class doesn't have the field, then
-     * we will check if a super class of the object has the field. Thus, for performance reasons, it
-     * may be beneficial to make sure you are supplying to correct class.
-     *
-     * @param field the name of the field
-     * @param clazz the class that has the field
-     * @return the value of the field
+     * @inheritDoc
      */
     public <E> E getStaticField(@NonNull String field, @NonNull Class<?> clazz) {
         return getFieldInternal(null, field, clazz);
     }
 
     /**
-     * Gets the specified field from the specified class. If the supplied class doesn't have the field, then
-     * we will check if a super class of the object has the field. Thus, for performance reasons, it
-     * may be beneficial to make sure you are supplying to correct class.
-     *
-     * @param obj   the object that has the field
-     * @param field the name of the field
-     * @param clazz the class that has the field
-     * @return the value of the field
+     * @inheritDoc
      */
     public <T, E> E getField(T obj, @NonNull String field, Class<?> clazz) {
         return getFieldInternal(obj, field, clazz);
     }
 
     /**
-     * Gets the value of the specified field. If the object doesn't have the field, then
-     * we will check if a super class of the object has the field. And in cases like these,
-     * checking the super classes may be slow, and thus you can use {@link JavaAseefianReflections#getField(Object, String, Class)}.
-     * However, thanks to caching, most likely this should not be needed.
-     *
-     * @param obj   the object that has the field
-     * @param field the name of the field
-     * @return the value of the field
+     * @inheritDoc
      */
     public <T, E> E getField(T obj, @NonNull String field) {
         return getFieldInternal(obj, field, obj.getClass());
@@ -482,29 +518,10 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
     @SuppressWarnings("unchecked")
     private <T, E> E getFieldInternal(T obj, @NonNull String fieldValue, Class<?> clazz) {
-        NoSuchFieldException ex = null;
-        FieldSignature fs = new FieldSignature(clazz, fieldValue);
-        Field field = fieldCache.getIfPresent(fs);
-        if (field == null) {
-            while (clazz != null) {
-                try {
-                    field = clazz.getDeclaredField(fieldValue);
-                    fieldCache.put(fs, field);
-                    break;
-                } catch (NoSuchFieldException e) {
-                    ex = e;
-                    clazz = clazz.getSuperclass();
-                }
-            }
-        }
         try {
-            if (field != null) {
-                field.trySetAccessible();
-                return (E) field.get(obj);
-            } else {
-                throw (ex == null ? new NoSuchFieldException("Field not found!") : ex);
-            }
-        } catch (NoSuchFieldException | IllegalAccessException e) {
+            Field field = getFieldByName(clazz, fieldValue);
+            return (E) field.get(obj);
+        } catch (IllegalAccessException e) {
             throw new ReflectiveAseefianException(e);
         }
     }
@@ -512,7 +529,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     @Getter
     @EqualsAndHashCode
     @ToString
-    public class MethodSignature {
+    public static class MethodSignature {
         Class<?> clazz;
         @Nullable Class<?> methodReturnType;
         @Nullable String methodName;
@@ -532,7 +549,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     @Getter
     @EqualsAndHashCode
     @ToString
-    public class FieldSignature {
+    public static class FieldSignature {
         @Nullable Class<?> parentClass;
         @Nullable Class<?> fieldType;
         String fieldName;

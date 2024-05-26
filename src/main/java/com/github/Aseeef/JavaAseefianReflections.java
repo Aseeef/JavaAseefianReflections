@@ -60,7 +60,25 @@ public interface JavaAseefianReflections {
 
     public @NonNull Method getMethodByName(@NonNull Class<?> objectType, @NonNull String methodName, Class<?>... parameterTypes);
 
-    public @NonNull Method getMethodByReturnType(@NonNull Class<?> objectType, @NonNull Class<?> executedReturnType, Class<?>... parameterTypes);
+    /**
+     * Find the method using the return type, and parameter types of the method.
+     * Unlike {@link JavaAseefianReflections#getMethodsByParamAndReturnType} if no match is found, an error will be thrown.
+     * Unless "ambiguous calls" in {@link JARConfig} are permitted, this method will throw an error if more than one matching method is found.
+     * @param objectType - the class where the method lives
+     * @param methodReturnType - the method's return type
+     * @param parameterTypes the parameters with method accepts
+     * @return the matched method
+     */
+    public @NonNull Method getMethodByParamAndReturnType(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes);
+
+    /**
+     * Get a list of methods in the order they occur in the source code using the class, return type, and parameter types of the method.
+     * @param objectType - the class where the method lives
+     * @param methodReturnType - the method's return type
+     * @param parameterTypes the parameters with method accepts
+     * @return The (possibly empty) list of matching methods.
+     */
+    public @NonNull Method[] getMethodsByParamAndReturnType(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes);
 
     public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes);
 
@@ -73,16 +91,32 @@ public interface JavaAseefianReflections {
     public <T> T newInstance(@NonNull Class<T> clazz, Object... parameters);
 
     /**
-     * Gets a field by type and index
-     * @param clazz the class which this field is in (must be the actual class,
-     *              searching superclasses/interfaces is not supported with this method at the moment
-     * @param fieldType - the expected field type. Make sure to be mindful of whether the field type is a primitive or not (ei Integer.class is not Integer.TYPE).
-     * @param fieldTypeIndex - the index these field is at. For example, if this field is the second declare String,
-     *                       then the index would be two (regardless of other fields). Index ids don't care about field
-     *                       modifiers like static, final, etc
-     * @return the field
+     * Get all fields (including static fields) in the order in which they occur that are of the specified type
+     * @param clazz - the class where the field lives
+     * @param fieldType - the type of the field
+     * @param exactType - is the provided class the exact type or is it interface/superclass type for the target(s)?
+     * @return An ordered array of fields that match the specified field type
      */
-    public Field getFieldByTypeIndex(Class<?> clazz, Class<?> fieldType, int fieldTypeIndex);
+    public Field[] getFieldsByType(Class<?> clazz, Class<?> fieldType, boolean exactType);
+
+    /**
+     * Get the fields (possibly a static fields) with the specified type.
+     * Unlike {@link JavaAseefianReflections#getFieldsByType(Class, Class, boolean)} if no match is found, an error will be thrown.
+     * Unless "ambiguous calls" in {@link JARConfig} are permitted, this method will throw an error if more than one matching method is found.
+     * @param clazz - the class where the field lives
+     * @param fieldType - the type of the field
+     * @param exactType - is the provided class the exact type or is it interface/superclass type for the target(s)?
+     * @return An ordered array of fields that match the specified field type
+     */
+    public Field getFieldByType(Class<?> clazz, Class<?> fieldType, boolean exactType);
+
+    /**
+     * Gets a field in a class from the field name.
+     * @param clazz the class which this field is in
+     * @param name the string name we are searching for
+     * @return the field with this name
+     */
+    public Field getFieldByName(Class<?> clazz, String name) throws NoSuchFieldException;
 
     /**
      * Set the value of a static field via reflections
@@ -116,10 +150,39 @@ public interface JavaAseefianReflections {
      */
     public <K, V> K setField(K obj, @NonNull String field, @Nullable V value, @NonNull Class<?> clazz);
 
+    /**
+     * Gets the specified static field from the specified class. If the supplied class doesn't have the field, then
+     * we will check if a super class of the object has the field. Thus, for performance reasons, it
+     * may be beneficial to make sure you are supplying to correct class.
+     *
+     * @param field the name of the field
+     * @param clazz the class that has the field
+     * @return the value of the field
+     */
     public <E> E getStaticField(@NonNull String field, @NonNull Class<?> clazz);
 
+    /**
+     * Gets the specified field from the specified class. If the supplied class doesn't have the field, then
+     * we will check if a super class of the object has the field. Thus, for performance reasons, it
+     * may be beneficial to make sure you are supplying to correct class.
+     *
+     * @param obj   the object that has the field
+     * @param field the name of the field
+     * @param clazz the class that has the field
+     * @return the value of the field
+     */
     public <T, E> E getField(T obj, @NonNull String field, Class<?> clazz);
 
+    /**
+     * Gets the value of the specified field. If the object doesn't have the field, then
+     * we will check if a super class of the object has the field. And in cases like these,
+     * checking the super classes may be slow, and thus you can use {@link JavaAseefianReflections#getField(Object, String, Class)}.
+     * However, thanks to caching, most likely this should not be needed.
+     *
+     * @param obj   the object that has the field
+     * @param field the name of the field
+     * @return the value of the field
+     */
     public <T, E> E getField(T obj, @NonNull String field);
 
 

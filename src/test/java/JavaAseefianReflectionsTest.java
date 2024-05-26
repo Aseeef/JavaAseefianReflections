@@ -5,6 +5,8 @@ import com.github.Aseeef.ReflectiveAseefianException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -64,13 +66,32 @@ class JavaAseefianReflectionsTest {
         String actual1 = jar.invokeMethod(tc, "doSomething", "a", 2, 'c', "d");
         assertEquals(expected1, actual1);
 
-        String expected2 = tc.doSomething2("a", 2, 2, 2, 2, 10, new Integer(100));
-        String actual2 = jar.invokeMethod(tc, "doSomething2", "a", 2, 2, 2, 2, 10, new Integer(100));
+        // Test var params, and boxed to primitive conversion
+        long start1 = System.currentTimeMillis();
+        String expected2 = tc.testMethodForInvoke("a", 2, 2, 2, 2, 10, new Integer(100));
+        String actual2 = jar.invokeMethod(tc, "testMethodForInvoke", "a", 2, 2, 2, 2, 10, new Integer(100));
         assertEquals(expected2, actual2);
+        long runtime1 = System.currentTimeMillis() - start1;
 
-        String expected3 = tc.doSomething2(null, 2, 2, 2, 2, 10, new Integer(100));
-        String actual3 = jar.invokeMethod(tc, "doSomething2", null, 2, 2, 2, 2, 10, new Integer(100));
+        // Test handling of null values for parameters
+        long start2 = System.currentTimeMillis();
+        String expected3 = tc.testMethodForInvoke(null, 2, 2, 2, 2, 10, new Integer(100));
+        String actual3 = jar.invokeMethod(tc, "testMethodForInvoke", null, 2, 2, 2, 2, 10, new Integer(100));
         assertEquals(expected3, actual3);
+        long runtime2 = System.currentTimeMillis() - start2;
+
+        // Make sure cache is working
+        assertTrue(runtime1 > runtime2);
+
+        // Test primitive to boxed conversions
+        double expected4 = tc.boxedParameters(1, 5.5);
+        double actual4 = jar.invokeMethod(tc, "boxedParameters", 1, 5.5);
+        assertEquals(expected4, actual4);
+
+        // Test calls involving nested interface
+        int expected5 = tc.stringInterfaceHash("Turtles", "are", "cool");
+        int actual5 = jar.invokeMethod(tc, "stringInterfaceHash", "Turtles", "are", "cool");
+        assertEquals(expected5, actual5);
 
         ReflectiveAseefianException error0 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeMethod(tc, "doSomething", 10, "a", "b", "c", null);
@@ -93,9 +114,8 @@ class JavaAseefianReflectionsTest {
         });
         assertEquals(error3.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
 
-        // even java complains this is an ambitious call
         ReflectiveAseefianException error4 = assertThrows(ReflectiveAseefianException.class, () -> {
-            //tc.doSomething4("a", null, "b", "c", null);
+            //tc.doSomething4("a", null, "b", "c", null); // even java complains this is an ambitious call
             jar.invokeMethod(tc, "doSomething4", "a", null, "b", "c", null);
         });
         assertEquals(error4.getExceptionType(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
@@ -121,27 +141,46 @@ class JavaAseefianReflectionsTest {
     }
 
     @Test
-    void getConstructor() {
-    }
+    void getMethod() throws NoSuchMethodException {
 
-    @Test
-    void getMethodByName() {
-    }
+        // By return type
+        Method m1 = StringBuilder.class.getMethod("toString");
+        Method m2 = jar.getMethodByParamAndReturnType(StringBuilder.class, String.class);
+        assertEquals(m1, m2);
 
-    @Test
-    void getMethodByReturnType() {
+        // By name
+
+
     }
 
     @Test @SuppressWarnings("unchecked")
     void newInstance() {
+        // Test normal instantiation
         ArrayList<Integer> arrayList = jar.newInstance(ArrayList.class, List.of(1, 2, 3, 4, 5));
         assertEquals(5, arrayList.size());
 
+        // Test error case (particularly trying to instantiate abstract class)
+        ReflectiveAseefianException error1 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.newInstance(AbstractSet.class);
+        });
+        assertEquals(error1.getExceptionType(), ReflectiveAseefianException.ExceptionType.INSTANTIATION_EXCEPTION);
 
+        // Test constructor with varargs parameter
+        TestClass testClass = jar.newInstance(TestClass.class, "A", "var", "args", "constructor");
+        assertArrayEquals(new String[]{"A", "var", "args", "constructor"}, testClass.testArgs);
     }
 
     @Test
-    void getFieldByTypeIndex() {
+    void getFields() throws NoSuchFieldException {
+        // (getFieldsByType) when no such field exists
+        jar.getFieldsByType(TestClass.class, ArrayList.class, true);
+
+        // (getFieldsByType) check works with interfaces + assert the field order
+        Field[] actualField = jar.getFieldsByType(TestClass.class, Collection.class, true);
+        Field[] expectedField =  new Field[]{TestClass.class.getDeclaredField("doubleSet"), TestClass.class.getDeclaredField("integerList"),};
+        assertArrayEquals(expectedField, actualField);
+
+        // (getFieldsByName)
     }
 
     @Test
