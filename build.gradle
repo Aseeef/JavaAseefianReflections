@@ -1,11 +1,12 @@
 plugins {
     id 'java'
     id "io.freefair.lombok" version "6.5.0.2"
+    id "com.github.johnrengelman.shadow" version "7.1.2"
     id "maven-publish"
 }
 
 group 'com.github.Aseeef'
-version '1.0.1'
+version '1.0.2'
 
 repositories {
     mavenCentral()
@@ -14,10 +15,27 @@ repositories {
 compileJava.options.encoding = "UTF-8"
 compileTestJava.options.encoding = "UTF-8"
 
+shadowJar {
+    archiveFileName = project.name + "-" + project.version + ".jar"
+    destinationDirectory = file("build")
+}
+
+sourceSets {
+    main.java.srcDirs = ['src/main/java']
+    main.resources.srcDirs = ['src/main/resources']
+}
+
+javadoc {
+    source = sourceSets.main.allJava
+    options.tags = [ "apiNote" ]
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(11)
     }
+    withSourcesJar()
+    withJavadocJar()
 }
 
 dependencies {
@@ -28,4 +46,16 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'com.github.Aseeef'
+            artifactId = 'JavaAseefianReflections'
+            version = project.version
+
+            from components.java
+        }
+    }
 }
