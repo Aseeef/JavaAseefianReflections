@@ -124,9 +124,8 @@ public interface JavaAseefianReflections {
      * @param clazz the class the static field belongs to
      * @param field the string value of the field
      * @param value the value which to set the field to
-     * @return simply returns the {@param obj}
      */
-    public <K, V> K setStaticField(Class<?> clazz, String field, V value);
+    public void setStaticField(Class<?> clazz, String field, Object value);
 
     /**
      * Set the value of a field via reflections. For performance reasons, it might be
@@ -136,7 +135,7 @@ public interface JavaAseefianReflections {
      * @param obj   the object whose field to set
      * @param field the string value of the field
      * @param value the value which to set the field to
-     * @return simply returns the {@param obj}
+     * @return simply returns the obj back
      */
     public <K, V> K setFieldValue(K obj, @NonNull String field, @Nullable V value);
 
@@ -147,7 +146,7 @@ public interface JavaAseefianReflections {
      * @param clazz the class that has this field
      * @param field the string value of the field
      * @param value the value which to set the field to
-     * @return simply returns the {@param obj}
+     * @return simply returns the obj back
      */
     public <K, V> K setFieldValue(K obj, @NonNull Class<?> clazz, @NonNull String field, @Nullable V value);
 

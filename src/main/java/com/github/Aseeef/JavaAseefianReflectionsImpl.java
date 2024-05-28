@@ -14,7 +14,7 @@ import java.util.stream.Stream;
 public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
     public final static Map<Class<?>, Class<?>> BOXED_TO_PRIMITIVE = Collections.unmodifiableMap(
-            new HashMap<>() {
+            new HashMap<Class<?>, Class<?>>() {
                 {
                     put(Boolean.class, Boolean.TYPE);
                     put(Character.class, Character.TYPE);
@@ -29,7 +29,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
             }
     );
     public final static Map<Class<?>, Class<?>> PRIMITIVE_TO_BOXED = Collections.unmodifiableMap(
-            new HashMap<>() {
+            new HashMap<Class<?>, Class<?>>() {
                 {
                     put(Boolean.TYPE, Boolean.class);
                     put(Character.TYPE, Character.class);
@@ -167,7 +167,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                     }
                     // or perhaps the method is a default method in an interface?
                     // In this case we do a depth first search to find the method
-                    Deque<Class<?>> interfacesToSearch = new ArrayDeque<>(List.of(currentClazz.getInterfaces()));
+                    Deque<Class<?>> interfacesToSearch = new ArrayDeque<>(Arrays.asList(currentClazz.getInterfaces()));
                     if (!interfacesToSearch.isEmpty()) {
                         do {
                             Class<?> interfaceClass = interfacesToSearch.poll();
@@ -177,7 +177,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                                     break;
                                 }
                             }
-                            interfacesToSearch.addAll(List.of(interfaceClass.getInterfaces()));
+                            interfacesToSearch.addAll(Arrays.asList(interfaceClass.getInterfaces()));
                         } while (!interfacesToSearch.isEmpty());
                     }
                 }
@@ -412,13 +412,13 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                     if (f.getType() == fieldType)
                         return true;
                     else if (!exactType) {
-                        Deque<Class<?>> interfacesToSearch = new ArrayDeque<>(List.of(f.getType().getInterfaces()));
+                        Deque<Class<?>> interfacesToSearch = new ArrayDeque<>(Arrays.asList(f.getType().getInterfaces()));
                         if (!interfacesToSearch.isEmpty()) {
                             do {
                                 Class<?> interfaceClass = interfacesToSearch.poll();
                                 if (interfaceClass.equals(fieldType))
                                     return true;
-                                interfacesToSearch.addAll(List.of(interfaceClass.getInterfaces()));
+                                interfacesToSearch.addAll(Arrays.asList(interfaceClass.getInterfaces()));
                             } while (!interfacesToSearch.isEmpty());
                         }
                     }
@@ -450,9 +450,6 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
     private static Field modifiersField;
 
-    /**
-     * @inheritDoc
-     */
     @Override
     public Field getFieldByName(Class<?> clazz, String fieldName) {
         Exception ex = null;
@@ -512,23 +509,14 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         return field;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public <K, V> K setStaticField(Class<?> clazz, String field, V value) {
-        return setFieldInternal(null, field, value, clazz);
+    public void setStaticField(Class<?> clazz, String field, Object value) {
+        setFieldInternal(null, field, value, clazz);
     }
 
-    /**
-     * @inheritDoc
-     */
     public <K, V> K setFieldValue(K obj, @NonNull String field, @Nullable V value) {
         return setFieldInternal(obj, field, value, obj.getClass());
     }
 
-    /**
-     * @inheritDoc
-     */
     public <K, V> K setFieldValue(K obj, @NonNull Class<?> clazz, @NonNull String field, @Nullable V value) {
         return setFieldInternal(obj, field, value, clazz);
     }
@@ -546,23 +534,14 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         return obj;
     }
 
-    /**
-     * @inheritDoc
-     */
     public <E> E getStaticFieldValue(@NonNull Class<?> clazz, @NonNull String field) {
         return getFieldInternalValue(null, field, clazz);
     }
 
-    /**
-     * @inheritDoc
-     */
     public <T, E> E getFieldValue(T obj, Class<?> clazz, @NonNull String field) {
         return getFieldInternalValue(obj, field, clazz);
     }
 
-    /**
-     * @inheritDoc
-     */
     public <T, E> E getFieldValue(T obj, @NonNull String field) {
         return getFieldInternalValue(obj, field, obj.getClass());
     }
