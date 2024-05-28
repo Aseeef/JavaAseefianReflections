@@ -2,9 +2,11 @@ import com.github.Aseeef.JARConfig;
 import com.github.Aseeef.JavaAseefianReflections;
 import com.github.Aseeef.JavaAseefianReflectionsImpl;
 import com.github.Aseeef.ReflectiveAseefianException;
+import com.github.Aseeef.cache.AseefianCache;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -67,21 +69,20 @@ class JavaAseefianReflectionsTest {
         assertEquals(expected1, actual1);
 
         // Test var params, and boxed to primitive conversion
-        long start1 = System.currentTimeMillis();
         String expected2 = tc.testMethodForInvoke("a", 2, 2, 2, 2, 10, new Integer(100));
         String actual2 = jar.invokeMethod(tc, "testMethodForInvoke", "a", 2, 2, 2, 2, 10, new Integer(100));
         assertEquals(expected2, actual2);
-        long runtime1 = System.currentTimeMillis() - start1;
 
         // Test handling of null values for parameters
-        long start2 = System.currentTimeMillis();
         String expected3 = tc.testMethodForInvoke(null, 2, 2, 2, 2, 10, new Integer(100));
         String actual3 = jar.invokeMethod(tc, "testMethodForInvoke", null, 2, 2, 2, 2, 10, new Integer(100));
         assertEquals(expected3, actual3);
-        long runtime2 = System.currentTimeMillis() - start2;
 
-        // Make sure cache is working
-        assertTrue(runtime1 > runtime2);
+        // Make sure executable cache is working
+        AseefianCache<JavaAseefianReflectionsImpl.MethodSignature, Executable[]> executableCache = jar.getField(jar, "executableCache");
+        Class<?>[] parameterTypes = jar.invokeMethod(jar, "fromParametersToParameterTypes", (Object) new Object[]{"a", 2, 2, 2, 2, 10, new Integer(100)});
+        JavaAseefianReflectionsImpl.MethodSignature sig = jar.newInstance(JavaAseefianReflectionsImpl.MethodSignature.class, tc.getClass(), "testMethodForInvoke", parameterTypes);
+        assertNotNull(executableCache.getIfPresent(sig));
 
         // Test primitive to boxed conversions
         double expected4 = tc.boxedParameters(1, 5.5);
@@ -93,32 +94,48 @@ class JavaAseefianReflectionsTest {
         int actual5 = jar.invokeMethod(tc, "stringInterfaceHash", "Turtles", "are", "cool");
         assertEquals(expected5, actual5);
 
+        // Method name exists, but parameters are wrong
         ReflectiveAseefianException error0 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeMethod(tc, "doSomething", 10, "a", "b", "c", null);
         });
         assertEquals(error0.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
 
+        // Method name does not exist
         ReflectiveAseefianException error1 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeMethod(tc, "aNonExistentMethod");
         });
         assertEquals(error1.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
 
+        // Method name cannot exist (invalid characters)
         ReflectiveAseefianException error2 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.invokeMethod(tc, "!invalidMethodName!");
+        });
+        assertEquals(error2.getExceptionType(), ReflectiveAseefianException.ExceptionType.ILLEGAL_ARGUMENT);
+
+        // Method exists, but the method invocation itself throws an error
+        ReflectiveAseefianException error3 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeMethod(tc, "errorThrowingMethod");
         });
-        assertEquals(error2.getExceptionType(), ReflectiveAseefianException.ExceptionType.INVOCATION_EXCEPTION);
+        assertEquals(error3.getExceptionType(), ReflectiveAseefianException.ExceptionType.INVOCATION_EXCEPTION);
 
         // should throw error, because remove() is defined in HashSet, not LinkedHashSet
-        ReflectiveAseefianException error3 = assertThrows(ReflectiveAseefianException.class, () -> {
+        ReflectiveAseefianException error4 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeMethod(set, LinkedHashSet.class,"remove", randNumber);
         });
-        assertEquals(error3.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
+        assertEquals(error4.getExceptionType(), ReflectiveAseefianException.ExceptionType.METHOD_NOT_FOUND);
 
-        ReflectiveAseefianException error4 = assertThrows(ReflectiveAseefianException.class, () -> {
+        // An invocation when its confusing to figure out which method was intended
+        ReflectiveAseefianException error5 = assertThrows(ReflectiveAseefianException.class, () -> {
             //tc.doSomething4("a", null, "b", "c", null); // even java complains this is an ambitious call
             jar.invokeMethod(tc, "doSomething4", "a", null, "b", "c", null);
         });
-        assertEquals(error4.getExceptionType(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
+        assertEquals(error5.getExceptionType(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
+
+        // Similar to above
+        ReflectiveAseefianException error6 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.invokeMethod(jar, "fromParametersToParameterTypes", new Object[]{"a", 2, 2, 2, 2, 10, new Integer(100)});
+        });
+        assertEquals(error6.getExceptionType(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
     }
 
     @Test

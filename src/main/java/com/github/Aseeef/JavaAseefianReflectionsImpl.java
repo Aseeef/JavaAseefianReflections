@@ -338,9 +338,28 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
         return Arrays.stream(executables).parallel().filter(executable -> {
             executable.trySetAccessible(); //in case private
+            // since JavaAseefianReflections#invokeMethod accept varargs parameters (Object...),
+            // if the first parameter of the method we are calling is then Object[], then the normal
+            // case wont find the match! Easy pitfall to fall in and this warning tells people the way out
+            if (executable.getParameterCount() == 1 && !executable.isVarArgs() && executable.getParameterTypes()[0].isArray() && suppliedParameterTypes.length != 1) {
+                Class<?> arrayType = executable.getParameterTypes()[0].getComponentType();
+                for (Class<?> c : suppliedParameterTypes) {
+                    if (!arrayType.isAssignableFrom(c)) {
+                        return false;
+                    }
+                }
+                StringBuilder sb = new StringBuilder();
+                for (Class<?> c : executable.getParameterTypes()) {
+                    sb.append(c.getSimpleName()).append(", ");
+                }
+                if (executable.getParameterTypes().length > 0) {
+                    sb.delete(sb.length() - 2, sb.length());
+                }
+                throw new ReflectiveAseefianException("It looks like you meant to call " + executable.getDeclaringClass() + "#" + executable.getName() + "(" + sb + ")" + ". However it was unclear if a varargs or non-varargs call was desired since the passed parameters can either be interpreted as a single array type parameter, or a sequence of (in your cast) " + suppliedParameterTypes.length + " parameters. To fix this, case your array argument to Object.", ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
+            }
             // if parameter count doesn't equal arg length then no match
             // UNLESS the executable has variable length (ei myMethod(String... varLenStr))
-            if (executable.getParameterCount() == suppliedParameterTypes.length || (executable.isVarArgs() && suppliedParameterTypes.length > executable.getParameterCount())) {
+            else if (executable.getParameterCount() == suppliedParameterTypes.length || (executable.isVarArgs() && suppliedParameterTypes.length > executable.getParameterCount())) {
                 Class<?>[] executableParameterTypes = executable.getParameterTypes();
                 for (int i = 0; i < suppliedParameterTypes.length; i++) {
                     int index = Math.min(i, executable.getParameterCount() - 1); // need to do this because of var args (ei a parameter in parameter like method(String... varargString))
