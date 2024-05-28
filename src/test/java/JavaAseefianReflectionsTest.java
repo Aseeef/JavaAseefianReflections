@@ -3,6 +3,7 @@ import com.github.Aseeef.JavaAseefianReflections;
 import com.github.Aseeef.JavaAseefianReflectionsImpl;
 import com.github.Aseeef.ReflectiveAseefianException;
 import com.github.Aseeef.cache.AseefianCache;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +24,8 @@ class JavaAseefianReflectionsTest {
         JARConfig config = new JARConfig();
         config.setAllowAccessingInheritedMethods(true);
         config.setAllowAccessingInheritedFields(true);
-        JavaAseefianReflections jar = JavaAseefianReflections.init();
+        config.setAllowModifyFinalStaticFields(true);
+        JavaAseefianReflections jar = JavaAseefianReflections.init(config);
         assertNotEquals(null, jar);
         assertInstanceOf(JavaAseefianReflectionsImpl.class, jar);
         JavaAseefianReflectionsTest.jar = jar;
@@ -74,14 +76,14 @@ class JavaAseefianReflectionsTest {
         assertEquals(expected2, actual2);
 
         // Test handling of null values for parameters
-        String expected3 = tc.testMethodForInvoke(null, 2, 2, 2, 2, 10, new Integer(100));
-        String actual3 = jar.invokeMethod(tc, "testMethodForInvoke", null, 2, 2, 2, 2, 10, new Integer(100));
+        String expected3 = tc.testMethodForInvoke(null, 2);
+        String actual3 = jar.invokeMethod(tc, "testMethodForInvoke", null, 2);
         assertEquals(expected3, actual3);
 
         // Make sure executable cache is working
-        AseefianCache<JavaAseefianReflectionsImpl.MethodSignature, Executable[]> executableCache = jar.getField(jar, "executableCache");
+        AseefianCache<JavaAseefianReflectionsImpl.MethodSignature, Executable[]> executableCache = jar.getFieldValue(jar, "executableCache");
         Class<?>[] parameterTypes = jar.invokeMethod(jar, "fromParametersToParameterTypes", (Object) new Object[]{"a", 2, 2, 2, 2, 10, new Integer(100)});
-        JavaAseefianReflectionsImpl.MethodSignature sig = jar.newInstance(JavaAseefianReflectionsImpl.MethodSignature.class, tc.getClass(), "testMethodForInvoke", parameterTypes);
+        JavaAseefianReflectionsImpl.MethodSignature sig = jar.newInstance(JavaAseefianReflectionsImpl.MethodSignature.class, tc.getClass(), "testMethodForInvoke", null, parameterTypes);
         assertNotNull(executableCache.getIfPresent(sig));
 
         // Test primitive to boxed conversions
@@ -163,15 +165,18 @@ class JavaAseefianReflectionsTest {
     }
 
     @Test
-    void getMethod() throws NoSuchMethodException {
+    void getMethods() throws NoSuchMethodException {
 
-        // By return type
-        Method m1 = StringBuilder.class.getMethod("toString");
-        Method m2 = jar.getMethodByParamAndReturnType(StringBuilder.class, String.class);
-        assertEquals(m1, m2);
+        // Methods By return type and params
+        int expected1 = 2;
+        Method[] actual1 = jar.getMethodsByReturnTypeAndParams(TestClass.class, String.class, String.class, Object[].class);
+        System.out.println(Arrays.toString(actual1));
+        assertEquals(expected1, actual1.length);
 
-        // By name
-
+        // Method by return type and params
+        Method expected2 = StringBuilder.class.getMethod("toString");
+        Method actual2 = jar.getMethodByReturnTypeAndParams(StringBuilder.class, String.class);
+        assertEquals(expected2, actual2);
 
     }
 
@@ -189,7 +194,7 @@ class JavaAseefianReflectionsTest {
 
         // Test constructor with varargs parameter
         TestClass testClass = jar.newInstance(TestClass.class, "A", "var", "args", "constructor");
-        assertArrayEquals(new String[]{"A", "var", "args", "constructor"}, testClass.testArgs);
+        assertArrayEquals(new String[]{"A", "var", "args", "constructor"}, jar.getFieldValue(testClass, "testArgs"));
     }
 
     @Test
@@ -230,11 +235,32 @@ class JavaAseefianReflectionsTest {
     }
 
     @Test
-    void setStaticField() {
+    void setAndGetStaticFieldValue() {
     }
 
-    @Test
-    void setField() {
+    @Test @SneakyThrows
+    void setAndGetFieldValue() {
+        // Test to ensure you can modify a final field
+        TestClass tc = jar.newInstance(TestClass.class, "Original", "String", "Array");
+        String[] modifiedArray = new String[]{"Modified", "String", "Array"};
+        jar.setFieldValue(tc, "testArgs", modifiedArray);
+        assertArrayEquals(modifiedArray, jar.getFieldValue(tc, "testArgs"));
+
+        // Test to ensure super class fields are findable and changeable
+        assertEquals(42, (Integer) jar.getFieldValue(tc, "meaningOfLife"));
+        jar.setFieldValue(tc, "meaningOfLife", 43);
+        assertEquals(43, (Integer) jar.getFieldValue(tc, "meaningOfLife"));
+
+        // Test to ensure super class static fields are findable and changeable
+        // and also checking to ensure static final fields can be changed
+        assertEquals(21, (Integer) jar.getStaticFieldValue(tc.getClass(), "theAnswerTo9Plus10"));
+        jar.setStaticField(tc.getClass(), "theAnswerTo9Plus10", 19);
+        assertEquals(19, (Integer) jar.getStaticFieldValue(tc.getClass(), "theAnswerTo9Plus10"));
+
+        // Test to ensure you can modify a field if you specify class too
+        assertEquals("Hi", jar.getFieldValue(tc, SuperTestClass.class, "initializeMe"));
+        jar.setFieldValue(tc, SuperTestClass.class, "initializeMe", "sup dude");
+        assertEquals("sup dude", jar.getFieldValue(tc, SuperTestClass.class, "initializeMe"));
     }
 
     @Test

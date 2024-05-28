@@ -18,5 +18,11 @@ public class JARConfig {
     // whether we should search the super classes to see if this method/field is exists
     // Disable this to save performance
     protected boolean searchSuperClasses = true;
+    // allow modification of final static fields
+    // considerations when enabling this:
+    // 1. If a security manager is present, it may prevent such modifications.
+    // 2. The JVM may optimize final static fields, so changes might not always be reflected as expected.
+    // 3. This approach relies on internal details of the Field class and might not be compatible with future versions of Java or certain JVM implementations.
+    protected boolean allowModifyFinalStaticFields = false;
 
 }

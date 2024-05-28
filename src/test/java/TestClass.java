@@ -5,11 +5,12 @@ import java.util.Set;
 
 public class TestClass extends SuperTestClass {
 
-    String[] testArgs;
-    Set<Double> doubleSet;
-    List<Integer> integerList;
+    private final String[] testArgs;
+    private Set<Double> doubleSet;
+    private List<Integer> integerList;
 
     public TestClass(String... testArgs) {
+        super("Hi");
         this.testArgs = testArgs;
     }
 

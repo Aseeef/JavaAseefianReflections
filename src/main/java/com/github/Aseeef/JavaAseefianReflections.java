@@ -38,7 +38,7 @@ public interface JavaAseefianReflections {
      * @param parameters     the parameters which to pass into the method
      * @return the result of the method call
      */
-    public <T> T invokeMethod(Object objectInstance, String methodName, Object... parameters);
+    public <T> T invokeMethod(@NonNull Object objectInstance, @NonNull String methodName, Object... parameters);
 
     /**
      * Invoke a method on the specific object.
@@ -52,33 +52,33 @@ public interface JavaAseefianReflections {
      * @param parameters     the parameters which to pass into the method
      * @return the result of the method call
      */
-    public <T> T invokeMethod(@NonNull Object objectInstance, Class<?> objectType, String methodName, Object... parameters);
+    public <T> T invokeMethod(@NonNull Object objectInstance, @NonNull Class<?> objectType, @NonNull String methodName, Object... parameters);
 
-    public <T> T invokeMethod(Object objectInstance, Method method, Object... parameters);
+    public <T> T invokeMethod(@NonNull Object objectInstance, @NonNull Method method, Object... parameters);
 
     public <T> T invokeStaticMethod(Class<?> objectType, String methodName, Object... parameters);
 
-    public @NonNull Method getMethodByName(@NonNull Class<?> objectType, @NonNull String methodName, Class<?>... parameterTypes);
+    public @NonNull Method getMethodByNameAndParams(@NonNull Class<?> exactObjectType, @NonNull String methodName, Class<?>... parameterTypes);
 
     /**
      * Find the method using the return type, and parameter types of the method.
      * Unlike {@link JavaAseefianReflections#getMethodsByReturnTypeAndParams} if no match is found, an error will be thrown.
      * Unless "ambiguous calls" in {@link JARConfig} are permitted, this method will throw an error if more than one matching method is found.
-     * @param objectType - the class where the method lives
+     * @param exactObjectType - the class where the method lives
      * @param methodReturnType - the method's return type
      * @param parameterTypes the parameters with method accepts
      * @return the matched method
      */
-    public @NonNull Method getMethodByParamAndReturnType(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes);
+    public @NonNull Method getMethodByReturnTypeAndParams(@NonNull Class<?> exactObjectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes);
 
     /**
      * Get a list of methods in the order they occur in the source code using the class, return type, and parameter types of the method.
-     * @param objectType - the class where the method lives
+     * @param exactObjectType - the class where the method lives
      * @param methodReturnType - the method's return type
      * @param parameterTypes the parameters with method accepts
      * @return The (possibly empty) list of matching methods.
      */
-    public @NonNull Method[] getMethodsByReturnTypeAndParams(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes);
+    public @NonNull Method[] getMethodsByReturnTypeAndParams(@NonNull Class<?> exactObjectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes);
 
     public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes);
 
@@ -116,20 +116,21 @@ public interface JavaAseefianReflections {
      * @param name the string name we are searching for
      * @return the field with this name
      */
-    public Field getFieldByName(Class<?> clazz, String name) throws NoSuchFieldException;
+    public Field getFieldByName(Class<?> clazz, String name);
 
     /**
      * Set the value of a static field via reflections
      *
+     * @param clazz the class the static field belongs to
      * @param field the string value of the field
      * @param value the value which to set the field to
      * @return simply returns the {@param obj}
      */
-    public <K, V> K setStaticField(String field, V value, Class<?> clazz);
+    public <K, V> K setStaticField(Class<?> clazz, String field, V value);
 
     /**
      * Set the value of a field via reflections. For performance reasons, it might be
-     * slightly beneficial to use {@link JavaAseefianReflections#setField(Object, String, Object, Class)} instead
+     * slightly beneficial to use {@link JavaAseefianReflections#setFieldValue(Object, Class, String, Object)} instead
      * in some cases especially when it is the super class that has the supplied field.
      *
      * @param obj   the object whose field to set
@@ -137,29 +138,29 @@ public interface JavaAseefianReflections {
      * @param value the value which to set the field to
      * @return simply returns the {@param obj}
      */
-    public <K, V> K setField(K obj, @NonNull String field, @Nullable V value);
+    public <K, V> K setFieldValue(K obj, @NonNull String field, @Nullable V value);
 
     /**
      * Set the value of a field via reflections
      *
      * @param obj   the object whose field to set
+     * @param clazz the class that has this field
      * @param field the string value of the field
      * @param value the value which to set the field to
-     * @param clazz the class that has this field
      * @return simply returns the {@param obj}
      */
-    public <K, V> K setField(K obj, @NonNull String field, @Nullable V value, @NonNull Class<?> clazz);
+    public <K, V> K setFieldValue(K obj, @NonNull Class<?> clazz, @NonNull String field, @Nullable V value);
 
     /**
      * Gets the specified static field from the specified class. If the supplied class doesn't have the field, then
      * we will check if a super class of the object has the field. Thus, for performance reasons, it
      * may be beneficial to make sure you are supplying to correct class.
      *
-     * @param field the name of the field
      * @param clazz the class that has the field
+     * @param field the name of the field
      * @return the value of the field
      */
-    public <E> E getStaticField(@NonNull String field, @NonNull Class<?> clazz);
+    public <E> E getStaticFieldValue(@NonNull Class<?> clazz, @NonNull String field);
 
     /**
      * Gets the specified field from the specified class. If the supplied class doesn't have the field, then
@@ -167,23 +168,23 @@ public interface JavaAseefianReflections {
      * may be beneficial to make sure you are supplying to correct class.
      *
      * @param obj   the object that has the field
-     * @param field the name of the field
      * @param clazz the class that has the field
+     * @param field the name of the field
      * @return the value of the field
      */
-    public <T, E> E getField(T obj, @NonNull String field, Class<?> clazz);
+    public <T, E> E getFieldValue(T obj, Class<?> clazz, @NonNull String field);
 
     /**
      * Gets the value of the specified field. If the object doesn't have the field, then
      * we will check if a super class of the object has the field. And in cases like these,
-     * checking the super classes may be slow, and thus you can use {@link JavaAseefianReflections#getField(Object, String, Class)}.
+     * checking the super classes may be slow, and thus you can use {@link JavaAseefianReflections#getFieldValue(Object, Class, String)}.
      * However, thanks to caching, most likely this should not be needed.
      *
      * @param obj   the object that has the field
      * @param field the name of the field
      * @return the value of the field
      */
-    public <T, E> E getField(T obj, @NonNull String field);
+    public <T, E> E getFieldValue(T obj, @NonNull String field);
 
 
 }

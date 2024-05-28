@@ -3,10 +3,7 @@ package com.github.Aseeef;
 import com.github.Aseeef.cache.AseefianCache;
 import com.github.Aseeef.cache.CaffeinatedCache;
 import com.github.Aseeef.cache.VanillaCache;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.ToString;
+import lombok.*;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.lang.reflect.*;
@@ -80,24 +77,24 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
     }
 
-    public <T> T invokeMethod(Object objectInstance, String methodName, Object... parameters) {
+    public <T> T invokeMethod(@NonNull Object objectInstance, @NonNull String methodName, Object... parameters) {
         Class<?> clazz = objectInstance.getClass();
-        MethodSignature methodSignature = new MethodSignature(clazz, methodName, fromParametersToParameterTypes(parameters));
+        MethodSignature methodSignature = new MethodSignature(clazz, methodName, null, fromParametersToParameterTypes(parameters));
         Method method = findMethodBySignature(methodSignature);
         return invokeMethod(objectInstance, method, parameters);
     }
 
-    public <T> T invokeMethod(@NonNull Object objectInstance, Class<?> objectType, String methodName, Object... parameters) {
+    public <T> T invokeMethod(@NonNull Object objectInstance, @NonNull Class<?> objectType, @NonNull String methodName, Object... parameters) {
         // none of the elements in the parameter may be null for this to work
         for (Object o : parameters)
             assert o != null;
-        Method method = getMethodByName(objectType, methodName, fromParametersToParameterTypes(parameters));
+        Method method = getMethodByNameAndParams(objectType, methodName, fromParametersToParameterTypes(parameters));
         return invokeMethod(objectInstance, method, parameters);
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T invokeMethod(Object objectInstance, Method method, Object... parameters) {
-        method.trySetAccessible();
+    public <T> T invokeMethod(@NonNull Object objectInstance, @NonNull Method method, Object... parameters) {
+        method.setAccessible(true);
         if (method.isVarArgs()) {
             parameters = convertParametersFromVarLength(method, parameters);
         }
@@ -112,8 +109,8 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
     @SuppressWarnings("unchecked")
     public <T> T invokeStaticMethod(Class<?> objectType, String methodName, Object... parameters) {
-        Method method = getMethodByName(objectType, methodName, fromParametersToParameterTypes(parameters));
-        method.trySetAccessible();
+        Method method = getMethodByNameAndParams(objectType, methodName, fromParametersToParameterTypes(parameters));
+        method.setAccessible(true);
         if (method.isVarArgs()) {
             parameters = convertParametersFromVarLength(method, parameters);
         }
@@ -147,11 +144,13 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                 Class<?> currentClazz = classesToCheck.poll();
                 if (currentClazz == null) break;
                 try {
-                    if (methodSignature.methodName == null && methodSignature.methodReturnType != null) {
-                        method = getMethodByParamAndReturnType(currentClazz, methodSignature.methodReturnType);
-                    } else if (methodSignature.methodName != null && methodSignature.methodReturnType == null) {
-                        method = getMethodByName(currentClazz, methodSignature.methodName, methodSignature.getParameterTypes());
+                    if (methodSignature.methodName == null && methodSignature.methodReturnType != null && methodSignature.parameterTypes != null) {
+                        method = getMethodByReturnTypeAndParams(currentClazz, methodSignature.methodReturnType, methodSignature.parameterTypes);
+                    } else if (methodSignature.methodName != null && methodSignature.parameterTypes != null && methodSignature.methodReturnType == null) {
+                        method = getMethodByNameAndParams(currentClazz, methodSignature.methodName, methodSignature.parameterTypes);
                     } else {
+                        // remaining case is to get method by parameters alone or with no filters
+                        // should never happen yet - not implemented
                         throw new ReflectiveAseefianException("This error should never happen!", ReflectiveAseefianException.ExceptionType.ILLEGAL_STATE); //should never happen
                     }
                     executableCache.put(methodSignature, new Executable[]{method});
@@ -186,7 +185,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
             if (method == null) throw (ex != null ? ex : new ReflectiveAseefianException("An unknown error occurred"));
             else {
-                method.trySetAccessible();
+                method.setAccessible(true);
                 return method;
             }
         }
@@ -204,9 +203,15 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         return parameters;
     }
 
-
-    public @NonNull Method getMethodByName(@NonNull Class<?> objectType, @NonNull String methodName, Class<?>... parameterTypes) {
+    public @NonNull Method getMethodByNameAndParams(@NonNull Class<?> exactObjectType, @NonNull String methodName, Class<?>... parameterTypes) {
         // validate the method name
+        validateMethodName(methodName);
+
+        // now search and return
+        return (Method) getExecutables(new MethodSignature(exactObjectType, methodName, null, parameterTypes), true)[0];
+    }
+
+    private static void validateMethodName(String methodName) {
         boolean valid;
         char[] chars = methodName.toCharArray();
         valid = Character.isJavaIdentifierStart(chars[0]);
@@ -219,17 +224,14 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         if (!valid) {
             throw new ReflectiveAseefianException("Error! Specified an invalid method name!", ReflectiveAseefianException.ExceptionType.ILLEGAL_ARGUMENT);
         }
-
-        // now search and return
-        return (Method) getExecutables(new MethodSignature(objectType, methodName, parameterTypes), true)[0];
     }
 
-    public @NonNull Method getMethodByParamAndReturnType(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes) {
-        return (Method) getExecutables(new MethodSignature(objectType, methodReturnType, parameterTypes), true)[0];
+    public @NonNull Method getMethodByReturnTypeAndParams(@NonNull Class<?> exactObjectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes) {
+        return (Method) getExecutables(new MethodSignature(exactObjectType, null, methodReturnType, parameterTypes), true)[0];
     }
 
-    public @NonNull Method[] getMethodsByReturnTypeAndParams(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes) {
-        return Arrays.stream(getExecutables(new MethodSignature(objectType, methodReturnType, parameterTypes), false)).map(Method.class::cast).toArray(Method[]::new);
+    public @NonNull Method[] getMethodsByReturnTypeAndParams(@NonNull Class<?> exactObjectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes) {
+        return Arrays.stream(getExecutables(new MethodSignature(exactObjectType, null, methodReturnType, parameterTypes), false)).map(Method.class::cast).toArray(Method[]::new);
     }
 
     /**
@@ -289,7 +291,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
 
     @SuppressWarnings("unchecked")
     public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes) {
-        return (Constructor<T>) getExecutables(new MethodSignature(objectType, "*cnstr*", parameterTypes), true)[0];
+        return (Constructor<T>) getExecutables(new MethodSignature(objectType, "*cnstr*", null, parameterTypes), true)[0];
     }
 
     public <T> T newInstance(@NonNull Class<T> clazz, Object... parameters) {
@@ -309,8 +311,8 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     }
 
     // specifically for searching methods, can't find constructors
-    private Executable[] findMatchingExecutables(Method[] executables, @Nullable Class<?> expectedReturnType, @Nullable String methodName, Class<?>[] argClasses) {
-        if (expectedReturnType == null && methodName == null) {
+    private Executable[] findMatchingExecutables(Method[] executables, @Nullable Class<?> expectedReturnType, @Nullable String methodName, @Nullable Class<?>[] argClasses) {
+        if (expectedReturnType == null && methodName == null && argClasses != null) {
             // find executable by only the parameter types
             return findMatchingExecutables(executables, argClasses);
         }
@@ -321,7 +323,10 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         if (methodName != null) {
             stream = stream.filter(method -> method.getName().equals(methodName));
         }
-        return findMatchingExecutables(stream.toArray(Method[]::new), argClasses);
+        if (argClasses != null) {
+            return findMatchingExecutables(stream.toArray(Method[]::new), argClasses);
+        }
+        return stream.toArray(Method[]::new);
     }
 
     /**
@@ -336,8 +341,8 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         if (executables.length == 0)
             return new Executable[0];
 
-        return Arrays.stream(executables).parallel().filter(executable -> {
-            executable.trySetAccessible(); //in case private
+        return Arrays.stream(executables).filter(executable -> {
+            executable.setAccessible(true); //in case private
             // since JavaAseefianReflections#invokeMethod accept varargs parameters (Object...),
             // if the first parameter of the method we are calling is then Object[], then the normal
             // case wont find the match! Easy pitfall to fall in and this warning tells people the way out
@@ -362,16 +367,17 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
             else if (executable.getParameterCount() == suppliedParameterTypes.length || (executable.isVarArgs() && suppliedParameterTypes.length > executable.getParameterCount())) {
                 Class<?>[] executableParameterTypes = executable.getParameterTypes();
                 for (int i = 0; i < suppliedParameterTypes.length; i++) {
-                    int index = Math.min(i, executable.getParameterCount() - 1); // need to do this because of var args (ei a parameter in parameter like method(String... varargString))
+                    int index = Math.min(i, executable.getParameterCount() - 1); // need to do this because of var args (ie a parameter in parameter like method(String... varargString))
                     // Class type of the parameter's arg at index
-                    Class<?> suppliedParameterType = suppliedParameterTypes[index];
+                    Class<?> suppliedParameterType = suppliedParameterTypes[i];
                     Class<?> executableParameterType = executableParameterTypes[index];
 
                     // if parameter of null type it's an automatic match
                     if (suppliedParameterType == null) continue;
                     // If we are matching a var arg parameter, adjustments to argClassType need to be made!
                     if (executable.isVarArgs() && i >= executable.getParameterCount() - 1) {
-                        executableParameterType = executableParameterType.getComponentType();
+                        if (executable.getParameterCount() != suppliedParameterTypes.length || !suppliedParameterType.isArray())
+                            executableParameterType = executableParameterType.getComponentType();
                     }
                     // handles primitive -> boxed and boxed -> primitive convertions
                     if (suppliedParameterType.isPrimitive() && !executableParameterType.isPrimitive() && BOXED_TO_PRIMITIVE.containsKey(executableParameterType)) {
@@ -380,6 +386,9 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                         executableParameterType = PRIMITIVE_TO_BOXED.get(executableParameterType);
                     }
 
+                    if (executableParameterType.isArray() != suppliedParameterType.isArray()) {
+                        return false;
+                    }
                     if (!executableParameterType.isAssignableFrom(suppliedParameterType)) {
                         return false; // only a single failed match is enough to conclude we got the wrong executable
                     }
@@ -393,7 +402,11 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     }
 
     public Field[] getFieldsByType(Class<?> clazz, Class<?> fieldType, boolean exactType) {
-        Field[] fields;
+        FieldSignature fieldSig = new FieldSignature(clazz, fieldType);
+        Field[] fields = fieldCache.getIfPresent(fieldSig);
+        if (fields != null) {
+            return fields;
+        }
         try {
             fields = Arrays.stream(clazz.getDeclaredFields()).parallel()
                     .filter(f -> {
@@ -413,7 +426,8 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                         return false;
                     })
                     .toArray(Field[]::new);
-            Arrays.stream(fields).forEach(AccessibleObject::trySetAccessible);
+            Arrays.stream(fields).forEach(f -> f.setAccessible(true));
+            fieldCache.put(fieldSig, fields);
         } catch (IndexOutOfBoundsException ex) {
             // no such field
             throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND);
@@ -439,12 +453,14 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         }
     }
 
+    private static Field modifiersField;
+
     /**
      * @inheritDoc
      */
     @Override
     public Field getFieldByName(Class<?> clazz, String fieldName) {
-        NoSuchFieldException ex = null;
+        Exception ex = null;
         FieldSignature fs = new FieldSignature(clazz, fieldName);
         Field[] matchingFieldsArr = fieldCache.getIfPresent(fs);
         // note: List<Field> MUST be one or zero
@@ -456,14 +472,34 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                 try {
                     currentField = clazz.getDeclaredField(fieldName);
                     matchingFields.add(currentField);
+
+                    // Remove the final modifier if this is a final static field (otherwise it cant be modified)
+                    if (config.allowModifyFinalStaticFields &&
+                            (currentField.getModifiers() & (Modifier.FINAL | Modifier.STATIC)) == (Modifier.FINAL | Modifier.STATIC)) {
+                        if (modifiersField == null) {
+                            modifiersField = Field.class.getDeclaredField("modifiers");
+                            modifiersField.setAccessible(true);
+                        }
+                        modifiersField.setInt(currentField, currentField.getModifiers() & ~Modifier.FINAL);
+                    }
+
                     ex = null;
                     break;
-                } catch (NoSuchFieldException e) {
+                } catch (NoSuchFieldException e1) {
                     if (config.searchSuperClasses) {
-                        ex = e;
+                        ex = e1;
                         clazz = clazz.getSuperclass();
                     } else {
                         throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND);
+                    }
+                } catch (IllegalAccessException e2) {
+                    // very unlikely but I suppose possible that an accessible
+                    // field with the same name exists in a super class?
+                    if (config.searchSuperClasses) {
+                        ex = e2;
+                        clazz = clazz.getSuperclass();
+                    } else {
+                        throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.ILLEGAL_ACCESS);
                     }
                 }
             }
@@ -477,31 +513,32 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         fieldCache.put(fs, matchingFieldsArr);
         // return field
         Field field = matchingFieldsArr[0];
-        field.trySetAccessible();
+        field.setAccessible(true);
         return field;
     }
 
     /**
      * @inheritDoc
      */
-    public <K, V> K setStaticField(String field, V value, Class<?> clazz) {
+    public <K, V> K setStaticField(Class<?> clazz, String field, V value) {
         return setFieldInternal(null, field, value, clazz);
     }
 
     /**
      * @inheritDoc
      */
-    public <K, V> K setField(K obj, @NonNull String field, @Nullable V value) {
+    public <K, V> K setFieldValue(K obj, @NonNull String field, @Nullable V value) {
         return setFieldInternal(obj, field, value, obj.getClass());
     }
 
     /**
      * @inheritDoc
      */
-    public <K, V> K setField(K obj, @NonNull String field, @Nullable V value, @NonNull Class<?> clazz) {
+    public <K, V> K setFieldValue(K obj, @NonNull Class<?> clazz, @NonNull String field, @Nullable V value) {
         return setFieldInternal(obj, field, value, clazz);
     }
 
+    @SneakyThrows
     private <K, V> K setFieldInternal(K obj, @NonNull String fieldName, @Nullable V value, @NonNull Class<?> clazz) {
         Field field = getFieldByName(clazz, fieldName);
         try {
@@ -517,26 +554,26 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
     /**
      * @inheritDoc
      */
-    public <E> E getStaticField(@NonNull String field, @NonNull Class<?> clazz) {
-        return getFieldInternal(null, field, clazz);
+    public <E> E getStaticFieldValue(@NonNull Class<?> clazz, @NonNull String field) {
+        return getFieldInternalValue(null, field, clazz);
     }
 
     /**
      * @inheritDoc
      */
-    public <T, E> E getField(T obj, @NonNull String field, Class<?> clazz) {
-        return getFieldInternal(obj, field, clazz);
+    public <T, E> E getFieldValue(T obj, Class<?> clazz, @NonNull String field) {
+        return getFieldInternalValue(obj, field, clazz);
     }
 
     /**
      * @inheritDoc
      */
-    public <T, E> E getField(T obj, @NonNull String field) {
-        return getFieldInternal(obj, field, obj.getClass());
+    public <T, E> E getFieldValue(T obj, @NonNull String field) {
+        return getFieldInternalValue(obj, field, obj.getClass());
     }
 
     @SuppressWarnings("unchecked")
-    private <T, E> E getFieldInternal(T obj, @NonNull String fieldValue, Class<?> clazz) {
+    private <T, E> E getFieldInternalValue(T obj, @NonNull String fieldValue, Class<?> clazz) {
         try {
             Field field = getFieldByName(clazz, fieldValue);
             return (E) field.get(obj);
@@ -552,15 +589,11 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         Class<?> clazz;
         @Nullable Class<?> methodReturnType;
         @Nullable String methodName;
-        Class<?>[] parameterTypes;
-        private MethodSignature(Class<?> clazz, @NonNull Class<?> methodReturnType, Class<?>[] parameterTypes) {
-            this.clazz = clazz;
-            this.methodReturnType = methodReturnType;
-            this.parameterTypes = parameterTypes;
-        }
-        private MethodSignature(Class<?> clazz, @NonNull String methodName, Class<?>[] parameterTypes) {
+        @Nullable Class<?>[] parameterTypes;
+        private MethodSignature(Class<?> clazz, @Nullable String methodName, @Nullable Class<?> methodReturnType, @Nullable Class<?>[] parameterTypes) {
             this.clazz = clazz;
             this.methodName = methodName;
+            this.methodReturnType = methodReturnType;
             this.parameterTypes = parameterTypes;
         }
     }
