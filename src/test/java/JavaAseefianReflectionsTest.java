@@ -234,10 +234,6 @@ class JavaAseefianReflectionsTest {
 
     }
 
-    @Test
-    void setAndGetStaticFieldValue() {
-    }
-
     @Test @SneakyThrows
     void setAndGetFieldValue() {
         // Test to ensure you can modify a final field
@@ -263,19 +259,4 @@ class JavaAseefianReflectionsTest {
         assertEquals("sup dude", jar.getFieldValue(tc, SuperTestClass.class, "initializeMe"));
     }
 
-    @Test
-    void testSetField() {
-    }
-
-    @Test
-    void getStaticField() {
-    }
-
-    @Test
-    void getField() {
-    }
-
-    @Test
-    void testGetField() {
-    }
 }

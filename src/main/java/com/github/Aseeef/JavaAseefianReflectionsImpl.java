@@ -407,31 +407,26 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         if (fields != null) {
             return fields;
         }
-        try {
-            fields = Arrays.stream(clazz.getDeclaredFields()).parallel()
-                    .filter(f -> {
-                        if (f.getType() == fieldType)
-                            return true;
-                        else if (!exactType) {
-                            Deque<Class<?>> interfacesToSearch = new ArrayDeque<>(List.of(f.getType().getInterfaces()));
-                            if (!interfacesToSearch.isEmpty()) {
-                                do {
-                                    Class<?> interfaceClass = interfacesToSearch.poll();
-                                    if (interfaceClass.equals(fieldType))
-                                        return true;
-                                    interfacesToSearch.addAll(List.of(interfaceClass.getInterfaces()));
-                                } while (!interfacesToSearch.isEmpty());
-                            }
+        fields = Arrays.stream(clazz.getDeclaredFields()).parallel()
+                .filter(f -> {
+                    if (f.getType() == fieldType)
+                        return true;
+                    else if (!exactType) {
+                        Deque<Class<?>> interfacesToSearch = new ArrayDeque<>(List.of(f.getType().getInterfaces()));
+                        if (!interfacesToSearch.isEmpty()) {
+                            do {
+                                Class<?> interfaceClass = interfacesToSearch.poll();
+                                if (interfaceClass.equals(fieldType))
+                                    return true;
+                                interfacesToSearch.addAll(List.of(interfaceClass.getInterfaces()));
+                            } while (!interfacesToSearch.isEmpty());
                         }
-                        return false;
-                    })
-                    .toArray(Field[]::new);
-            Arrays.stream(fields).forEach(f -> f.setAccessible(true));
-            fieldCache.put(fieldSig, fields);
-        } catch (IndexOutOfBoundsException ex) {
-            // no such field
-            throw new ReflectiveAseefianException(ex, ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND);
-        }
+                    }
+                    return false;
+                })
+                .toArray(Field[]::new);
+        Arrays.stream(fields).forEach(f -> f.setAccessible(true));
+        fieldCache.put(fieldSig, fields);
         return fields;
     }
 
