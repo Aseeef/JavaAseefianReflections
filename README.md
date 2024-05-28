@@ -26,12 +26,12 @@
   <p align="center">
     A Comprehensive Reflections Library for Java
     <br />
-    <a href="https://github.com/Aseeef/AseefianProxyPool/wiki"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/Aseeef/JavaAseefianReflections/wiki"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/Aseeef/AseefianProxyPool/issues">Report Bug</a>
+    <a href="https://github.com/Aseeef/JavaAseefianReflections/issues">Report Bug</a>
     ·
-    <a href="https://github.com/Aseeef/AseefianProxyPool/issues">Request Feature</a>
+    <a href="https://github.com/Aseeef/JavaAseefianReflections/issues">Request Feature</a>
   </p>
 </div>
 
@@ -164,19 +164,19 @@ Project Link: [https://github.com/Aseeef/JavaAseefianReflections](https://github
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/Aseeef/AseefianProxyPool.svg?style=for-the-badge
-[contributors-url]: https://github.com/Aseeef/AseefianProxyPool/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/Aseeef/AseefianProxyPool.svg?style=for-the-badge
-[forks-url]: https://github.com/Aseeef/AseefianProxyPool/network/members
-[stars-shield]: https://img.shields.io/github/stars/Aseeef/AseefianProxyPool.svg?style=for-the-badge
-[stars-url]: https://github.com/Aseeef/AseefianProxyPool/stargazers
-[issues-shield]: https://img.shields.io/github/issues/Aseeef/AseefianProxyPool.svg?style=for-the-badge
-[issues-url]: https://github.com/Aseeef/AseefianProxyPool/issues
-[license-shield]: https://img.shields.io/github/license/Aseeef/AseefianProxyPool.svg?style=for-the-badge
-[license-url]: https://github.com/Aseeef/AseefianProxyPool/blob/master/LICENSE.txt
+[contributors-shield]: https://img.shields.io/github/contributors/Aseeef/JavaAseefianReflections.svg?style=for-the-badge
+[contributors-url]: https://github.com/Aseeef/JavaAseefianReflections/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/Aseeef/JavaAseefianReflections.svg?style=for-the-badge
+[forks-url]: https://github.com/Aseeef/JavaAseefianReflections/network/members
+[stars-shield]: https://img.shields.io/github/stars/Aseeef/JavaAseefianReflections.svg?style=for-the-badge
+[stars-url]: https://github.com/Aseeef/JavaAseefianReflections/stargazers
+[issues-shield]: https://img.shields.io/github/issues/Aseeef/JavaAseefianReflections.svg?style=for-the-badge
+[issues-url]: https://github.com/Aseeef/JavaAseefianReflections/issues
+[license-shield]: https://img.shields.io/github/license/Aseeef/JavaAseefianReflections.svg?style=for-the-badge
+[license-url]: https://github.com/Aseeef/JavaAseefianReflections/blob/master/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/aseef/
-[jitpack-shield]: https://img.shields.io/jitpack/version/com.github.Aseeef/AseefianProxyPool?style=for-the-badge
-[jitpack-url]: https://jitpack.io/#Aseeef/AseefianProxyPool/
-[download-shield]: https://img.shields.io/github/downloads/Aseeef/AseefianProxyPool/total?style=for-the-badge
-[download-url]: https://github.com/Aseeef/AseefianProxyPool/releases
+[jitpack-shield]: https://img.shields.io/jitpack/version/com.github.Aseeef/JavaAseefianReflections?style=for-the-badge
+[jitpack-url]: https://jitpack.io/#Aseeef/JavaAseefianReflections/
+[download-shield]: https://img.shields.io/github/downloads/Aseeef/JavaAseefianReflections/total?style=for-the-badge
+[download-url]: https://github.com/Aseeef/JavaAseefianReflections/releases
