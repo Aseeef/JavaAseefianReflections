@@ -228,7 +228,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
         return (Method) getExecutables(new MethodSignature(objectType, methodReturnType, parameterTypes), true)[0];
     }
 
-    public @NonNull Method[] getMethodsByParamAndReturnType(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes) {
+    public @NonNull Method[] getMethodsByReturnTypeAndParams(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes) {
         return Arrays.stream(getExecutables(new MethodSignature(objectType, methodReturnType, parameterTypes), false)).map(Method.class::cast).toArray(Method[]::new);
     }
 
@@ -433,7 +433,7 @@ public class JavaAseefianReflectionsImpl implements JavaAseefianReflections {
                 sb.append(l).append(", ");
             }
             sb.delete(sb.length() - 2, sb.length());
-            throw new ReflectiveAseefianException("More than one field found in class " + clazz.getSimpleName() + " with type " + fieldType.getSimpleName() + ": " + sb.toString());
+            throw new ReflectiveAseefianException("More than one field found in class " + clazz.getSimpleName() + " with type " + fieldType.getSimpleName() + ": " + sb.toString(), ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL);
         } else {
             return fields[0];
         }

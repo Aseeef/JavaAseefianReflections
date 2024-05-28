@@ -94,6 +94,11 @@ class JavaAseefianReflectionsTest {
         int actual5 = jar.invokeMethod(tc, "stringInterfaceHash", "Turtles", "are", "cool");
         assertEquals(expected5, actual5);
 
+        // Same call as above to test cache
+        int expected6 = tc.stringInterfaceHash("Turtles", "are", "cool");
+        int actual6 = jar.invokeMethod(tc, "stringInterfaceHash", "Turtles", "are", "cool");
+        assertEquals(expected6, actual6);
+
         // Method name exists, but parameters are wrong
         ReflectiveAseefianException error0 = assertThrows(ReflectiveAseefianException.class, () -> {
             jar.invokeMethod(tc, "doSomething", 10, "a", "b", "c", null);
@@ -193,11 +198,35 @@ class JavaAseefianReflectionsTest {
         jar.getFieldsByType(TestClass.class, ArrayList.class, true);
 
         // (getFieldsByType) check works with interfaces + assert the field order
-        Field[] actualField = jar.getFieldsByType(TestClass.class, Collection.class, true);
-        Field[] expectedField =  new Field[]{TestClass.class.getDeclaredField("doubleSet"), TestClass.class.getDeclaredField("integerList"),};
-        assertArrayEquals(expectedField, actualField);
+        Field[] actualField1 = jar.getFieldsByType(TestClass.class, Collection.class, false);
+        Field[] expectedField1 = new Field[]{TestClass.class.getDeclaredField("doubleSet"), TestClass.class.getDeclaredField("integerList"),};
+        assertArrayEquals(expectedField1, actualField1);
 
-        // (getFieldsByName)
+        // (getFieldByType)
+        Field actualField2 = jar.getFieldByType(TestClass.class, String[].class, true);
+        Field expectedField23 = TestClass.class.getDeclaredField("testArgs");
+        assertEquals(expectedField23, actualField2);
+
+        // (getFieldByName)
+        Field actualField3 = jar.getFieldByName(TestClass.class, "testArgs");
+        assertEquals(expectedField23, actualField3);
+
+        // Throw error if getFieldByType has multiple return values
+        ReflectiveAseefianException error1 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.getFieldByType(TestClass.class, Collection.class, false);
+        });
+        assertEquals(ReflectiveAseefianException.ExceptionType.AMBIGUOUS_CALL, error1.getExceptionType());
+
+        // Throw error if non-existant
+        ReflectiveAseefianException error2 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.getFieldByType(TestClass.class, StringBuilder.class, false);
+        });
+        assertEquals(ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND, error2.getExceptionType());
+        ReflectiveAseefianException error3 = assertThrows(ReflectiveAseefianException.class, () -> {
+            jar.getFieldByName(TestClass.class, "nonExistentField");
+        });
+        assertEquals(ReflectiveAseefianException.ExceptionType.FIELD_NOT_FOUND, error3.getExceptionType());
+
     }
 
     @Test

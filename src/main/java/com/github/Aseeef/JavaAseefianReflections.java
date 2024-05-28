@@ -62,7 +62,7 @@ public interface JavaAseefianReflections {
 
     /**
      * Find the method using the return type, and parameter types of the method.
-     * Unlike {@link JavaAseefianReflections#getMethodsByParamAndReturnType} if no match is found, an error will be thrown.
+     * Unlike {@link JavaAseefianReflections#getMethodsByReturnTypeAndParams} if no match is found, an error will be thrown.
      * Unless "ambiguous calls" in {@link JARConfig} are permitted, this method will throw an error if more than one matching method is found.
      * @param objectType - the class where the method lives
      * @param methodReturnType - the method's return type
@@ -78,7 +78,7 @@ public interface JavaAseefianReflections {
      * @param parameterTypes the parameters with method accepts
      * @return The (possibly empty) list of matching methods.
      */
-    public @NonNull Method[] getMethodsByParamAndReturnType(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes);
+    public @NonNull Method[] getMethodsByReturnTypeAndParams(@NonNull Class<?> objectType, @NonNull Class<?> methodReturnType, Class<?>... parameterTypes);
 
     public <T> @NonNull Constructor<T> getConstructor(@NonNull Class<T> objectType, Class<?>... parameterTypes);
 
@@ -94,7 +94,7 @@ public interface JavaAseefianReflections {
      * Get all fields (including static fields) in the order in which they occur that are of the specified type
      * @param clazz - the class where the field lives
      * @param fieldType - the type of the field
-     * @param exactType - is the provided class the exact type or is it interface/superclass type for the target(s)?
+     * @param exactType - is the provided class (clazz) the exact type or is it interface/superclass type for the target(s)?
      * @return An ordered array of fields that match the specified field type
      */
     public Field[] getFieldsByType(Class<?> clazz, Class<?> fieldType, boolean exactType);
@@ -105,7 +105,7 @@ public interface JavaAseefianReflections {
      * Unless "ambiguous calls" in {@link JARConfig} are permitted, this method will throw an error if more than one matching method is found.
      * @param clazz - the class where the field lives
      * @param fieldType - the type of the field
-     * @param exactType - is the provided class the exact type or is it interface/superclass type for the target(s)?
+     * @param exactType - is the provided class (clazz) the exact type or is it interface/superclass type for the target(s)?
      * @return An ordered array of fields that match the specified field type
      */
     public Field getFieldByType(Class<?> clazz, Class<?> fieldType, boolean exactType);
