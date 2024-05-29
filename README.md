@@ -173,7 +173,7 @@ Project Link: [https://github.com/Aseeef/JavaAseefianReflections](https://github
 [issues-shield]: https://img.shields.io/github/issues/Aseeef/JavaAseefianReflections.svg?style=for-the-badge
 [issues-url]: https://github.com/Aseeef/JavaAseefianReflections/issues
 [license-shield]: https://img.shields.io/github/license/Aseeef/JavaAseefianReflections.svg?style=for-the-badge
-[license-url]: https://github.com/Aseeef/JavaAseefianReflections/blob/master/LICENSE
+[license-url]: https://github.com/Aseeef/JavaAseefianReflections/blob/master/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/aseef/
 [jitpack-shield]: https://img.shields.io/jitpack/version/com.github.Aseeef/JavaAseefianReflections?style=for-the-badge
